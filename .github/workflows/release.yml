@@ -1,6 +1,7 @@
 name: Release GoldTicker
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
