@@ -1,0 +1,11 @@
+# GoldTicker 运行依赖清单
+# 运行时核心依赖 (跨平台)
+certifi>=2024.12.14
+Pillow>=10.0.0
+
+# 平台专属表现层依赖 (按操作系统自动匹配)
+pystray>=0.19.5; sys_platform == 'win32'
+pyobjc-framework-Cocoa>=9.0; sys_platform == 'darwin'
+
+# 构建时依赖 (发布打包使用，非日常运行必需):
+# pyinstaller>=6.11.0; sys_platform == 'win32'
