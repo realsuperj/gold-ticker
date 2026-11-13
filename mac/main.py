@@ -43,14 +43,18 @@ from core.constants import (
 )
 from core.pricing import PricingEngine, QuoteData, default_engine
 from core.storage import (
+    apply_frozen_basis,
     cleanup_old_history,
     clear_intraday_cache,
+    freeze_day_basis,
+    get_day_basis,
     load_today_points,
     record_price_point,
 )
 
 import objc
 from AppKit import (
+    NSEvent,
     NSAlert,
     NSAlertFirstButtonReturn,
     NSApplication,
@@ -91,83 +95,12 @@ from Foundation import NSMakePoint, NSMakeRect, NSMakeSize, NSObject, NSString
 
 # ---------------- 多语言字典 ----------------
 
-I18N = {
-    "zh": {
-        "showOnDesktop": "显示到桌面",
-        "showMenuBar": "显示到菜单栏/托盘",
-        "showChart": "显示走势图",
-        "showDetails": "显示 高/低/基准价",
-        "alwaysOnTop": "窗口置顶",
-        "cardWidth": "卡片宽度",
-        "cardOpacity": "卡片透明度",
-        "resetPos": "重置窗口位置",
-        "symbols": "行情标的",
-        "changeBasis": "涨跌对比",
-        "prevClose": "较昨收价 (prevClose)",
-        "openPrice": "较今开盘 (open)",
-        "colorMode": "涨跌配色",
-        "cnyColors": "红涨绿跌 (国内习惯)",
-        "intlColors": "绿涨红跌 (国际习惯)",
-        "refreshInterval": "刷新频率",
-        "seconds": "秒",
-        "recommend": "推荐",
-        "advanced": "高级与配置",
-        "openConfigFolder": "打开配置文件所在目录",
-        "reloadConfig": "重新加载配置 (免重启)",
-        "clearCache": "清除走势缓存与历史",
-        "aboutMenu": "关于与免责",
-        "aboutApp": "关于 GoldTicker...",
-        "viewDisclaimer": "查看免责声明...",
-        "visitGithub": "访问 GitHub 仓库",
-        "quitApp": "退出 GoldTicker",
-        "refreshing": "刷新中...",
-        "estTag": "(估算)",
-    },
-    "en": {
-        "showOnDesktop": "Show on Desktop",
-        "showMenuBar": "Show on MenuBar/Tray",
-        "showChart": "Show Chart",
-        "showDetails": "Show High/Low/Base Price",
-        "alwaysOnTop": "Always on Top",
-        "cardWidth": "Card Width",
-        "cardOpacity": "Card Opacity",
-        "resetPos": "Reset Window Position",
-        "symbols": "Gold Symbols",
-        "changeBasis": "Price Change Basis",
-        "prevClose": "vs Prev Close (prevClose)",
-        "openPrice": "vs Open Price (open)",
-        "colorMode": "Color Mode",
-        "cnyColors": "Red Up / Green Down (CN)",
-        "intlColors": "Green Up / Red Down (Intl)",
-        "refreshInterval": "Refresh Interval",
-        "seconds": "seconds",
-        "recommend": "Recommended",
-        "advanced": "Advanced Settings",
-        "openConfigFolder": "Open Configuration Directory",
-        "reloadConfig": "Reload Configuration (No Restart)",
-        "clearCache": "Clear Intraday Trend Cache",
-        "aboutMenu": "About & Disclaimer",
-        "aboutApp": "About GoldTicker...",
-        "viewDisclaimer": "View Financial Disclaimer...",
-        "visitGithub": "Visit GitHub Repository",
-        "quitApp": "Quit GoldTicker",
-        "refreshing": "Refreshing...",
-        "estTag": "(Est)",
-    },
-}
-
-
-def get_current_lang(cfg: Dict[str, Any]) -> str:
-    pref = cfg.get("language", "auto")
-    if pref in ("zh", "en"):
-        return pref
-    try:
-        sys_loc, _ = locale.getdefaultlocale()
-        if sys_loc and sys_loc.lower().startswith("zh"):
-            return "zh"
-    except Exception:
-        pass
-    return "en"
+from core.i18n import TRANSLATIONS, resolve_language, ticker_prefix, t
+from core.product import VERSION, COPYRIGHT, resource_path
+from mac.card import draw_card
+I18N = {lang: {key: value[lang] for key, value in TRANSLATIONS.items()} for lang in ("zh", "en")}
+def get_current_lang(cfg):
+    return resolve_language(cfg.get("language", "auto"))
 
 
 def calc_window_height(cfg: Dict[str, Any]) -> float:
@@ -176,7 +109,7 @@ def calc_window_height(cfg: Dict[str, Any]) -> float:
     if cfg.get("showDetails", True):
         h += 16           # 次要数据行 (高/低/基准)
     if cfg.get("showChart", True):
-        h += 2 + 48 + 12  # 走势图区域 (纯净折线画布)
+        h += 2 + 44 + 12  # 走势图区域 (纯净折线画布)
     return h + 12
 
 
@@ -225,176 +158,22 @@ class GoldCardView(NSView):
         if self.app_controller:
             self.app_controller.menu_controller.show_menu_for_view(self, event)
 
+    def isFlipped(self):
+        return True
+
     def drawRect_(self, dirtyRect):
         if not self.app_controller:
             return
-
-        cfg = self.app_controller.config
-        quote = self.app_controller.current_quote
-        lang = get_current_lang(cfg)
-        meta = SYMBOL_META.get(quote.symbol if quote else cfg.get("symbol", SYMBOL_AU9999), SYMBOL_META[SYMBOL_AU9999])
-
-        bounds = self.bounds()
-        w = bounds.size.width
-        h = bounds.size.height
-
-        # 1. 绘制背景圆角卡片
-        bg_path = NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(bounds, 12.0, 12.0)
-        # 深色优雅半透明背景
-        opacity = float(cfg.get("opacity", 0.88))
-        NSColor.colorWithCalibratedRed_green_blue_alpha_(0.08, 0.11, 0.16, opacity).setFill()
-        bg_path.fill()
-
-        # 边框
-        NSColor.colorWithCalibratedWhite_alpha_(1.0, 0.12).setStroke()
-        bg_path.setLineWidth_(1.0)
-        bg_path.stroke()
-
-        pad_x = 14.0
-        cur_y = h - 12.0
-
-        # 2. 第一行：标的名称与更新时间
-        sym_name = meta["name_cn"] if lang == "zh" else meta["name_en"]
-        if quote and quote.is_estimated:
-            sym_name += (" " + I18N[lang]["estTag"])
-        # 2. 第一行：标的名称与单位（移除右上角重复展示的时间，保持视觉纯净）
-        sym_name = meta["name_cn"] if lang == "zh" else meta["name_en"]
-        unit_str = meta["unit_cn"] if lang == "zh" else meta["unit_en"]
-        title_str = f"{sym_name} · {unit_str}"
-
-        title_attrs = {
-            NSFontAttributeName: NSFont.systemFontOfSize_weight_(11.0, NSFontWeightMedium),
-            NSForegroundColorAttributeName: NSColor.colorWithCalibratedWhite_alpha_(0.70, 1.0),
+        self.cfg = self.app_controller.config
+        q = self.app_controller.current_quote
+        self.quote = {} if not q else {
+            "price": q.price, "prevClose": q.prev_close, "open": q.open_price,
+            "high": q.high, "low": q.low, "source": q.symbol,
+            "sourceName": SYMBOL_META[q.symbol]["name_cn"] + (" (点差估算)" if q.is_estimated else ""),
+            "error": q.error,
         }
-        NSString.stringWithString_(title_str).drawAtPoint_withAttributes_(NSMakePoint(pad_x, cur_y - 14.0), title_attrs)
-        time_str = quote.time_str if quote else "--:--"
-        cur_y -= (14.0 + 8.0)
-
-        # 3. 第二行：现价大字与涨跌色彩
-        price_val = quote.price if quote else 0.0
-        basis = cfg.get("changeBasis", "prevClose")
-        base_price = (quote.prev_close if basis == "prevClose" else quote.open_price) if quote else 0.0
-        change_val = (price_val - base_price) if (quote and base_price > 0) else 0.0
-        pct_val = (change_val / base_price * 100.0) if (base_price > 0) else 0.0
-
-        # 红绿配色逻辑
-        color_mode = cfg.get("colorMode", "cny")
-        is_up = change_val >= 0
-        if color_mode == "cny":
-            # 国内：红涨绿跌
-            color_active = NSColor.colorWithCalibratedRed_green_blue_alpha_(0.96, 0.28, 0.28, 1.0) if is_up else NSColor.colorWithCalibratedRed_green_blue_alpha_(0.18, 0.80, 0.44, 1.0)
-        else:
-            # 国际：绿涨红跌
-            color_active = NSColor.colorWithCalibratedRed_green_blue_alpha_(0.18, 0.80, 0.44, 1.0) if is_up else NSColor.colorWithCalibratedRed_green_blue_alpha_(0.96, 0.28, 0.28, 1.0)
-
-        if math.isclose(change_val, 0.0, abs_tol=1e-5):
-            color_active = NSColor.colorWithCalibratedWhite_alpha_(0.85, 1.0)
-
-        price_text = f"{price_val:.2f}"
-        price_attrs = {
-            NSFontAttributeName: NSFont.monospacedDigitSystemFontOfSize_weight_(28.0, NSFontWeightBold),
-            NSForegroundColorAttributeName: color_active,
-        }
-        NSString.stringWithString_(price_text).drawAtPoint_withAttributes_(NSMakePoint(pad_x, cur_y - 32.0), price_attrs)
-        cur_y -= 34.0
-
-        # 4. 第三行：涨跌额与涨跌幅
-        sign = "+" if change_val > 0 else ""
-        diff_text = f"{sign}{change_val:.2f}  ({sign}{pct_val:.2f}%)"
-        diff_attrs = {
-            NSFontAttributeName: NSFont.monospacedDigitSystemFontOfSize_weight_(12.0, NSFontWeightMedium),
-            NSForegroundColorAttributeName: color_active,
-        }
-        NSString.stringWithString_(diff_text).drawAtPoint_withAttributes_(NSMakePoint(pad_x, cur_y - 14.0), diff_attrs)
-        cur_y -= (14.0 + 8.0)
-
-        # 5. 可选第四行：显示 高/低/基准价
-        if cfg.get("showDetails", True):
-            h_val = quote.high if quote else 0.0
-            l_val = quote.low if quote else 0.0
-            basis_label = "昨收" if basis == "prevClose" else "今开"
-            if lang == "en":
-                basis_label = "Prev" if basis == "prevClose" else "Open"
-            detail_text = f"高 {h_val:.2f}  低 {l_val:.2f}  {basis_label} {base_price:.2f}"
-            detail_attrs = {
-                NSFontAttributeName: NSFont.monospacedDigitSystemFontOfSize_weight_(10.0, NSFontWeightRegular),
-                NSForegroundColorAttributeName: NSColor.colorWithCalibratedWhite_alpha_(0.50, 1.0),
-            }
-            NSString.stringWithString_(detail_text).drawAtPoint_withAttributes_(NSMakePoint(pad_x, cur_y - 12.0), detail_attrs)
-            cur_y -= (12.0 + 8.0)
-
-        # 6. 可选第五行：走势图 (严格遵循表现层纯净原则，无任何调试计数文本)
-        if cfg.get("showChart", True):
-            chart_h = 44.0
-            chart_w = w - pad_x * 2.0
-            chart_rect = NSMakeRect(pad_x, cur_y - chart_h, chart_w, chart_h)
-
-            pts = load_today_points(quote.symbol if quote else None)
-            prices = [pt["p"] for pt in pts if pt.get("p", 0) > 0]
-            if len(prices) >= 2:
-                min_p = min(prices)
-                max_p = max(prices)
-                if math.isclose(min_p, max_p, abs_tol=1e-5):
-                    min_p -= 1.0
-                    max_p += 1.0
-
-                span = max_p - min_p
-                path = NSBezierPath.bezierPath()
-                step_x = chart_w / float(len(prices) - 1)
-
-                for idx, p in enumerate(prices):
-                    px = pad_x + idx * step_x
-                    py = (cur_y - chart_h) + ((p - min_p) / span) * chart_h
-                    if idx == 0:
-                        path.moveToPoint_(NSMakePoint(px, py))
-                    else:
-                        path.lineToPoint_(NSMakePoint(px, py))
-
-                # 绘制折线
-                color_active.setStroke()
-                path.setLineWidth_(1.5)
-                path.setLineJoinStyle_(1)
-                path.setLineCapStyle_(1)
-                path.stroke()
-
-                # 绘制末端实心高亮点
-                last_px = pad_x + (len(prices) - 1) * step_x
-                last_py = (cur_y - chart_h) + ((prices[-1] - min_p) / span) * chart_h
-                dot = NSBezierPath.bezierPathWithOvalInRect_(NSMakeRect(last_px - 2.0, last_py - 2.0, 4.0, 4.0))
-                color_active.setFill()
-                dot.fill()
-
-                # 渐变填充
-                fill_path = path.copy()
-                fill_path.lineToPoint_(NSMakePoint(pad_x + chart_w, cur_y - chart_h))
-                fill_path.lineToPoint_(NSMakePoint(pad_x, cur_y - chart_h))
-                fill_path.closePath()
-                grad = NSGradient.alloc().initWithStartingColor_endingColor_(
-                    color_active.colorWithAlphaComponent_(0.22),
-                    color_active.colorWithAlphaComponent_(0.02),
-                )
-                grad.drawInBezierPath_angle_(fill_path, 90.0)
-
-                # 底部时间标尺 (纯净原则：绝无技术调试计数)
-                time_range_y = cur_y - chart_h - 13.0
-                time_range_attrs = {
-                    NSFontAttributeName: NSFont.monospacedDigitSystemFontOfSize_weight_(8.5, NSFontWeightRegular),
-                    NSForegroundColorAttributeName: NSColor.colorWithCalibratedWhite_alpha_(0.38, 1.0),
-                }
-                NSString.stringWithString_("00:00").drawAtPoint_withAttributes_(NSMakePoint(pad_x, time_range_y), time_range_attrs)
-                cur_t_sz = NSString.stringWithString_(time_str).sizeWithAttributes_(time_range_attrs)
-                NSString.stringWithString_(time_str).drawAtPoint_withAttributes_(NSMakePoint(w - pad_x - cur_t_sz.width, time_range_y), time_range_attrs)
-            else:
-                # 采样不足时的精美占位线
-                mid_y = cur_y - chart_h / 2.0
-                dash_path = NSBezierPath.bezierPath()
-                dash_path.moveToPoint_(NSMakePoint(pad_x, mid_y))
-                dash_path.lineToPoint_(NSMakePoint(pad_x + chart_w, mid_y))
-                NSColor.colorWithCalibratedWhite_alpha_(1.0, 0.15).setStroke()
-                dash_path.setLineWidth_(1.0)
-                dash = [4.0, 4.0]
-                dash_path.setLineDash_count_phase_(dash, 2, 0.0)
-                dash_path.stroke()
+        self.samples = load_today_points(q.symbol if q else self.cfg["symbol"])
+        draw_card(self)
 
 
 # ---------------- 统一菜单控制器 (实现 Menu Action Matrix 与双入口互锁) ----------------
@@ -411,15 +190,48 @@ class MenuController(NSObject):
         menu = self.build_menu()
         NSMenu.popUpContextMenu_withEvent_forView_(menu, event, view)
 
+    def menuNeedsUpdate_(self, menu):
+        """每次打开菜单前按最新 config 重绘勾选/互锁状态。"""
+        menu.removeAllItems()
+        self._populate_menu(menu)
+
     @objc.python_method
     def build_menu(self) -> NSMenu:
+        menu = NSMenu.alloc().init()
+        menu.setAutoenablesItems_(False)
+        menu.setDelegate_(self)
+        self._populate_menu(menu)
+        return menu
+
+    @objc.python_method
+    def _mark_radio_repr(self, sender, selected):
+        parent = sender.menu()
+        if not parent:
+            return
+        for item in parent.itemArray():
+            if item.isSeparatorItem():
+                continue
+            obj = item.representedObject()
+            if obj is None:
+                continue
+            item.setState_(NSOnState if str(obj) == str(selected) else NSOffState)
+
+    @objc.python_method
+    def _mark_radio_tag(self, sender, selected_tag):
+        parent = sender.menu()
+        if not parent:
+            return
+        for item in parent.itemArray():
+            if item.isSeparatorItem():
+                continue
+            item.setState_(NSOnState if int(item.tag()) == int(selected_tag) else NSOffState)
+
+    @objc.python_method
+    def _populate_menu(self, menu: NSMenu) -> None:
         cfg = self.app.config
         quote = self.app.current_quote
         lang = get_current_lang(cfg)
         txt = I18N[lang]
-
-        menu = NSMenu.alloc().init()
-        menu.setAutoenablesItems_(False)
 
         # 1. 顶部只读概览与点击刷新
         if quote and quote.price > 0:
@@ -554,6 +366,17 @@ class MenuController(NSObject):
         m_color.setSubmenu_(color_sub)
         menu.addItem_(m_color)
 
+        language_menu = NSMenu.alloc().init()
+        for choice in ("auto", "zh", "en"):
+            item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(t("menu_lang_" + choice, lang), "onSelectLanguage:", "")
+            item.setTarget_(self)
+            item.setRepresentedObject_(choice)
+            item.setState_(NSOnState if cfg.get("language", "auto") == choice else NSOffState)
+            language_menu.addItem_(item)
+        item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(t("menu_language", lang), None, "")
+        item.setSubmenu_(language_menu)
+        menu.addItem_(item)
+
         # 刷新频率子菜单 (严格 >= 10 秒)
         ref_sub = NSMenu.alloc().init()
         cur_ref = int(cfg.get("refreshSeconds", 10))
@@ -601,8 +424,6 @@ class MenuController(NSObject):
         m_quit.setTarget_(self)
         menu.addItem_(m_quit)
 
-        return menu
-
     # 动作响应
     def onForceRefresh_(self, sender):
         self.app.trigger_fetch_now()
@@ -623,31 +444,41 @@ class MenuController(NSObject):
         cur = self.app.config.get("showChart", True)
         self.app.config["showChart"] = not cur
         save_config(self.app.config)
+        sender.setState_(NSOnState if self.app.config["showChart"] else NSOffState)
         self.app.update_window_size()
+        self.app.refresh_status_menu()
 
     def onToggleDetails_(self, sender):
         cur = self.app.config.get("showDetails", True)
         self.app.config["showDetails"] = not cur
         save_config(self.app.config)
+        sender.setState_(NSOnState if self.app.config["showDetails"] else NSOffState)
         self.app.update_window_size()
+        self.app.refresh_status_menu()
 
     def onToggleTop_(self, sender):
         cur = self.app.config.get("alwaysOnTop", True)
         self.app.config["alwaysOnTop"] = not cur
         save_config(self.app.config)
+        sender.setState_(NSOnState if self.app.config["alwaysOnTop"] else NSOffState)
         self.app.apply_window_level()
+        self.app.refresh_status_menu()
 
     def onSelectWidth_(self, sender):
         w = int(sender.tag())
         self.app.config["width"] = w
         save_config(self.app.config)
+        self._mark_radio_tag(sender, w)
         self.app.update_window_size()
+        self.app.refresh_status_menu()
 
     def onSelectOpacity_(self, sender):
         op = float(sender.tag()) / 100.0
         self.app.config["opacity"] = op
         save_config(self.app.config)
+        self._mark_radio_tag(sender, int(sender.tag()))
         self.app.card_view.setNeedsDisplay_(True)
+        self.app.refresh_status_menu()
 
     def onResetPos_(self, sender):
         self.app.config["windowX"] = -1
@@ -659,12 +490,31 @@ class MenuController(NSObject):
         sym = str(sender.representedObject())
         self.app.config["symbol"] = sym
         save_config(self.app.config)
-        self.app.trigger_fetch_now()
+        self._mark_radio_repr(sender, sym)
+        # 先上屏缓存/本地末点，避免清空后干等网络
+        cached = default_engine.get_cached_quote(sym)
+        if cached and cached.price > 0:
+            self.app.current_quote = apply_frozen_basis(cached)
+        else:
+            pts = load_today_points(sym)
+            if pts:
+                last = pts[-1]
+                meta = SYMBOL_META.get(sym, SYMBOL_META[SYMBOL_AU9999])
+                stub = QuoteData(
+                    symbol=sym, price=float(last["p"]), prev_close=0.0, open_price=0.0,
+                    high=float(last["p"]), low=float(last["p"]), change=0.0, change_pct=0.0,
+                    time_str=str(last.get("t") or "--:--"), source_id="cache",
+                    source_name=meta["name_cn"], is_estimated=meta.get("is_estimated", False),
+                )
+                self.app.current_quote = apply_frozen_basis(stub)
+        self.app.apply_all_config()
+        self.app.trigger_fetch_now(force=True)
 
     def onSelectBasis_(self, sender):
         basis = str(sender.representedObject())
         self.app.config["changeBasis"] = basis
         save_config(self.app.config)
+        self._mark_radio_repr(sender, basis)
         self.app.card_view.setNeedsDisplay_(True)
         self.app.update_status_bar()
 
@@ -672,12 +522,22 @@ class MenuController(NSObject):
         cm = str(sender.representedObject())
         self.app.config["colorMode"] = cm
         save_config(self.app.config)
+        self._mark_radio_repr(sender, cm)
         self.app.card_view.setNeedsDisplay_(True)
+        self.app.refresh_status_menu()
+
+    def onSelectLanguage_(self, sender):
+        self.app.config["language"] = str(sender.representedObject())
+        save_config(self.app.config)
+        self._mark_radio_repr(sender, self.app.config["language"])
+        self.app.apply_all_config()
 
     def onSelectRefresh_(self, sender):
         ref = int(sender.tag())
         self.app.config["refreshSeconds"] = max(MIN_REFRESH_SECONDS, ref)
         save_config(self.app.config)
+        self._mark_radio_tag(sender, self.app.config["refreshSeconds"])
+        self.app.refresh_status_menu()
 
     def onOpenFolder_(self, sender):
         subprocess.run(["open", str(get_app_data_dir())])
@@ -690,19 +550,24 @@ class MenuController(NSObject):
         clear_intraday_cache()
         self.app.card_view.setNeedsDisplay_(True)
 
-    def onAbout_(self, sender):
+    @objc.python_method
+    def make_alert(self, title, body):
+        lang = get_current_lang(self.app.config)
         alert = NSAlert.alloc().init()
-        alert.setMessageText_("GoldTicker (macOS)")
-        alert.setInformativeText_("版本: v1.0.0\n轻量无打扰跨平台黄金行情桌面小挂件\nCopyright © 2026 realsuperj. MIT License.")
-        alert.runModal()
+        alert.setIcon_(NSImage.alloc().initWithContentsOfFile_(str(resource_path())))
+        alert.setMessageText_(t(title, lang))
+        alert.setInformativeText_(body)
+        alert.addButtonWithTitle_(t("ok", lang))
+        return alert
+
+    def onAbout_(self, sender):
+        lang = get_current_lang(self.app.config)
+        self.make_alert("about_title", t("about_body", lang, version=VERSION, copyright=COPYRIGHT)).runModal()
 
     def onDisclaimer_(self, sender):
         lang = get_current_lang(self.app.config)
         text = DISCLAIMER_CN if lang == "zh" else DISCLAIMER_EN
-        alert = NSAlert.alloc().init()
-        alert.setMessageText_("金融行情免责与数据说明")
-        alert.setInformativeText_(text)
-        alert.runModal()
+        self.make_alert("disclaimer_title", text).runModal()
 
     def onGithub_(self, sender):
         subprocess.run(["open", "https://github.com/realsuperj/gold-ticker"])
@@ -722,6 +587,7 @@ class GoldTickerApp:
         self.status_item: Optional[Any] = None
         self.menu_controller = MenuController.alloc().initWithAppController_(self)
         self._is_fetching = False
+        self._fetch_gen = 0
 
     def setup_ui(self):
         # 1. 初始化无边框半透明窗口
@@ -812,7 +678,9 @@ class GoldTickerApp:
         if self.status_item:
             self.status_item.setVisible_(show_menubar)
 
-        # 重新生成菜单以刷新互锁置灰状态
+        self.refresh_status_menu()
+
+    def refresh_status_menu(self):
         if self.status_item:
             self.status_item.setMenu_(self.menu_controller.build_menu())
 
@@ -827,12 +695,12 @@ class GoldTickerApp:
             return
         quote = self.current_quote
         if not quote or quote.price <= 0:
-            self.status_item.button().setTitle_("GoldTicker")
+            self.status_item.button().setTitle_(ticker_prefix(self.config) + " --")
+            self.refresh_status_menu()
             return
 
-        meta = SYMBOL_META.get(quote.symbol, SYMBOL_META[SYMBOL_AU9999])
         lang = get_current_lang(self.config)
-        prefix = meta["prefix_cn"] if lang == "zh" else meta["prefix_en"]
+        prefix = "金" if lang == "zh" else "Au"
 
         basis = self.config.get("changeBasis", "prevClose")
         base_price = quote.prev_close if basis == "prevClose" else quote.open_price
@@ -841,28 +709,43 @@ class GoldTickerApp:
 
         bar_text = f"{prefix} {quote.price:.2f} {pct:+.2f}%"
         self.status_item.button().setTitle_(bar_text)
-        self.status_item.setMenu_(self.menu_controller.build_menu())
+        self.refresh_status_menu()
 
-    def trigger_fetch_now(self):
-        if self._is_fetching:
+    def trigger_fetch_now(self, force: bool = False):
+        # 切标的 force=True：不排队等待旧请求，直接开新一代取数
+        if self._is_fetching and not force:
             return
-        threading.Thread(target=self._async_fetch, daemon=True).start()
+        self._fetch_gen += 1
+        gen = self._fetch_gen
+        self._is_fetching = True
+        threading.Thread(target=self._async_fetch, args=(gen,), daemon=True).start()
 
-    def _async_fetch(self):
+    def _async_fetch(self, gen: int):
         self._is_fetching = True
         try:
             sym = self.config.get("symbol", SYMBOL_AU9999)
-            quote = default_engine.get_quote(sym)
+            # 一轮采样写入全部标的，避免只记当前标的造成分时断层
+            quotes = default_engine.sample_all_quotes()
+            if gen != self._fetch_gen:
+                return
+            for s, q in quotes.items():
+                if q and q.price > 0 and not q.error:
+                    freeze_day_basis(s, q.prev_close, q.open_price)
+                    record_price_point(q.price, s)
+            quote = quotes.get(sym) or default_engine.get_cached_quote(sym)
             if quote and quote.price > 0:
-                record_price_point(quote.price, sym)
-            self.current_quote = quote
-            # 安全调度回主线程更新 UI
-            self.card_view.performSelectorOnMainThread_withObject_waitUntilDone_("setNeedsDisplay:", True, False)
-            self.perform_ui_update_on_main()
+                quote = apply_frozen_basis(quote)
+            if gen != self._fetch_gen or sym != self.config.get("symbol", SYMBOL_AU9999):
+                return
+            if quote is not None:
+                self.current_quote = quote
+            from PyObjCTools import AppHelper
+            AppHelper.callAfter(self.perform_ui_update_on_main)
         except Exception as e:
             sys.stderr.write(f"Fetch error: {e}\n")
         finally:
-            self._is_fetching = False
+            if gen == self._fetch_gen:
+                self._is_fetching = False
 
     def perform_ui_update_on_main(self):
         def _update():
@@ -888,6 +771,7 @@ class GoldTickerApp:
 
 def main():
     app = NSApplication.sharedApplication()
+    app.setApplicationIconImage_(NSImage.alloc().initWithContentsOfFile_(str(resource_path())))
     # Accessory 模式：不占 Dock 栏，常驻后台
     app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 

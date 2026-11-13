@@ -20,12 +20,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/preview-zs.png" width="380" alt="浙商银行积存金实时走势 (macOS 原生卡片)" />
-  &nbsp;&nbsp;
+  <img src="docs/preview-zs.png" width="380" alt="浙商银行积存金示例走势 (macOS 原生卡片)" />
   <img src="docs/preview-intl.png" width="380" alt="国际现货黄金 XAU/USD (macOS 原生卡片)" />
 </p>
 <p align="center">
-  <sub>左：浙商银行积存金（分时平滑走势，元/克） &nbsp; | &nbsp; 右：国际现货黄金 XAU/USD（实时行情，美元/盎司）</sub>
+  <sub>浙商银行积存金（元/克）与国际现货黄金（美元/盎司）。使用正式 macOS 卡片渲染的示例数据，非实时行情截图。</sub>
 </p>
 
 </div>
@@ -63,15 +62,20 @@ GoldTicker 严格保障金融数据的透明度与准确性，当前收录的 5 
 
 ### 方式一：直接下载发布包 (推荐)
 前往项目的 [Releases](https://github.com/realsuperj/gold-ticker/releases) 页面下载对应系统的最新发布包：
-- **macOS**：下载 `GoldTicker-macOS-Universal2.dmg`，双击拖入 `Applications` 即可运行；
-- **Windows**：直接下载单个免安装绿色版 `GoldTicker.exe`（或 `GoldTicker-standalone-win-x64.zip`），双击即可运行，无任何外部依赖。
+- **macOS**：下载 `GoldTicker-macOS-<arch>.dmg`，双击拖入 `Applications` 即可运行；
+- **Windows**：直接下载单个免安装绿色版 `GoldTicker.exe`（或 `GoldTicker-Windows-x64.zip`），双击即可运行，无任何外部依赖。
 
 ### 方式二：源码运行与本地安装
+
+源码统一使用 `python goldticker.py`（macOS 和 Windows），可从任意工作目录使用绝对路径启动。
+
+本地和 CI 均使用 `python tools/build.py` 与 `GoldTicker.spec`，产物自带 Python 及运行依赖。Mac 文件名标注实际架构（arm64 或 x86_64），不声明 Universal2。`python goldticker.py --smoke-test` 在临时配置目录运行离线原生界面冒烟。
 
 #### macOS 本地安装与启动
 ```bash
 # 1. 安装依赖 (Python 3.9+)
 pip install -r requirements.txt
+pip install "pyinstaller>=6.11,<7"
 
 # 2. 本地安装为系统应用并自动启动
 ./install.sh                # 安装至 ~/Applications/GoldTicker.app
@@ -82,9 +86,10 @@ pip install -r requirements.txt
 ```powershell
 # 1. 安装依赖
 pip install -r requirements.txt
+pip install "pyinstaller>=6.11,<7"
 
 # 2. 启动 Windows 表现层
-python windows/main.py
+python goldticker.py
 ```
 
 ---
@@ -93,18 +98,18 @@ python windows/main.py
 
 右键点击桌面悬浮卡片，或点击顶部菜单栏 / 任务栏托盘图标，均可弹出全量控制菜单：
 
-| <nobr>控制分类&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</nobr> | <nobr>功能项&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</nobr> | 说明 |
+| 控制分类 | 功能项 | 说明 |
 | :--- | :--- | :--- |
-| <nobr>**视图入口**</nobr> | 显示到桌面 / 显示到托盘 | 支持独立隐藏桌面卡片，保留状态栏常驻 |
-| <nobr>**图表辅助**</nobr> | 显示走势图 / 显示高低基准 | 走势图自适应展开与折叠；辅助展示今开、昨收、最高、最低 |
-| <nobr>**层级调整**</nobr> | 窗口置顶 | 浮动在所有窗口之上 / 普通桌面层级切换 |
-| <nobr>**标的切换**</nobr> | Au99.99 / 国际金 / 浙商 / 工行 / 建行 | 支持人民币元/克与国际美元/盎司快速切换 |
-| <nobr>**涨跌基准**</nobr> | 昨收价 / 今开价 | 切换涨跌额与涨跌幅度的计算参考基准 |
-| <nobr>**色彩偏好**</nobr> | 红涨绿跌 (国内) / 绿涨红跌 (国际) | 偏好跟着人走，全局生效，不随标的跳变 |
-| <nobr>**语言切换**</nobr> | 跟随系统 / 简体中文 / English | 轻量化全界面双语无缝切换 |
-| <nobr>**刷新频率**</nobr> | 10秒 / 15秒 / 30秒 / 60秒 / 300秒 | 灵活调节数据更新频率 |
-| <nobr>**卡片定制**</nobr> | 宽度 (180~280pt) / 透明度 (60%~100%) | 界面自适应多档排版调节 |
-| <nobr>**数据管理**</nobr> | 打开配置目录 / 重置位置 / 重新加载 | 一键定位配置文件，重置窗口至屏幕右上角 |
+| **视⁠图⁠入⁠口** | 显示到桌面 / 显示到托盘 | 支持独立隐藏桌面卡片，保留状态栏常驻 |
+| **图⁠表⁠辅⁠助** | 显示走势图 / 显示高低基准 | 走势图自适应展开与折叠；辅助展示今开、昨收、最高、最低 |
+| **层⁠级⁠调⁠整** | 窗口置顶 | 浮动在所有窗口之上 / 普通桌面层级切换 |
+| **标⁠的⁠切⁠换** | Au99.99 / 国际金 / 浙商 / 工行 / 建行 | 支持人民币元/克与国际美元/盎司快速切换 |
+| **涨⁠跌⁠基⁠准** | 昨收价 / 今开价 | 切换涨跌额与涨跌幅度的计算参考基准 |
+| **色⁠彩⁠偏⁠好** | 红涨绿跌 (国内) / 绿涨红跌 (国际) | 偏好跟着人走，全局生效，不随标的跳变 |
+| **语⁠言⁠切⁠换** | 跟随系统 / 简体中文 / English | 轻量化全界面双语无缝切换 |
+| **刷⁠新⁠频⁠率** | 10秒 / 15秒 / 30秒 / 60秒 / 300秒 | 灵活调节数据更新频率 |
+| **卡⁠片⁠定⁠制** | 宽度 (180~280pt) / 透明度 (60%~100%) | 界面自适应多档排版调节 |
+| **数⁠据⁠管⁠理** | 打开配置目录 / 重置位置 / 重新加载 | 一键定位配置文件，重置窗口至屏幕右上角 |
 
 ---
 

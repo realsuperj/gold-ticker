@@ -69,6 +69,54 @@ TRANSLATIONS = {
 }
 
 
+TRANSLATIONS.update({'showOnDesktop': {'zh': '显示到桌面', 'en': 'Show on Desktop'},
+ 'showMenuBar': {'zh': '显示到菜单栏/托盘', 'en': 'Show on MenuBar/Tray'},
+ 'showChart': {'zh': '显示走势图', 'en': 'Show Chart'},
+ 'showDetails': {'zh': '显示 高/低/基准价', 'en': 'Show High/Low/Base Price'},
+ 'alwaysOnTop': {'zh': '窗口置顶', 'en': 'Always on Top'},
+ 'cardWidth': {'zh': '卡片宽度', 'en': 'Card Width'},
+ 'cardOpacity': {'zh': '卡片透明度', 'en': 'Card Opacity'},
+ 'resetPos': {'zh': '重置窗口位置', 'en': 'Reset Window Position'},
+ 'symbols': {'zh': '行情标的', 'en': 'Gold Symbols'},
+ 'changeBasis': {'zh': '涨跌对比', 'en': 'Price Change Basis'},
+ 'prevClose': {'zh': '较昨收价 (prevClose)', 'en': 'vs Prev Close (prevClose)'},
+ 'openPrice': {'zh': '较今开盘 (open)', 'en': 'vs Open Price (open)'},
+ 'colorMode': {'zh': '涨跌配色', 'en': 'Color Mode'},
+ 'cnyColors': {'zh': '红涨绿跌 (国内习惯)', 'en': 'Red Up / Green Down (CN)'},
+ 'intlColors': {'zh': '绿涨红跌 (国际习惯)', 'en': 'Green Up / Red Down (Intl)'},
+ 'refreshInterval': {'zh': '刷新频率', 'en': 'Refresh Interval'},
+ 'seconds': {'zh': '秒', 'en': 'seconds'},
+ 'recommend': {'zh': '推荐', 'en': 'Recommended'},
+ 'advanced': {'zh': '高级与配置', 'en': 'Advanced Settings'},
+ 'openConfigFolder': {'zh': '打开配置文件所在目录', 'en': 'Open Configuration Directory'},
+ 'reloadConfig': {'zh': '重新加载配置 (免重启)', 'en': 'Reload Configuration (No Restart)'},
+ 'clearCache': {'zh': '清除走势缓存与历史', 'en': 'Clear Intraday Trend Cache'},
+ 'aboutMenu': {'zh': '关于与免责', 'en': 'About & Disclaimer'},
+ 'aboutApp': {'zh': '关于 GoldTicker...', 'en': 'About GoldTicker...'},
+ 'viewDisclaimer': {'zh': '查看免责声明...', 'en': 'View Financial Disclaimer...'},
+ 'visitGithub': {'zh': '访问 GitHub 仓库', 'en': 'Visit GitHub Repository'},
+ 'quitApp': {'zh': '退出 GoldTicker', 'en': 'Quit GoldTicker'},
+ 'refreshing': {'zh': '刷新中...', 'en': 'Refreshing...'},
+ 'estTag': {'zh': '(估算)', 'en': '(Est)'},
+ 'fetch_error': {'zh': '行情暂不可用', 'en': 'Quote unavailable'},
+ 'about_title': {'zh': '关于 GoldTicker', 'en': 'About GoldTicker'},
+ 'about_body': {'zh': '版本：{version}\n轻量跨平台黄金行情桌面小组件\n{copyright}',
+                'en': 'Version: {version}\n'
+                      'Lightweight cross-platform gold price widget\n'
+                      '{copyright}'},
+ 'ok': {'zh': '确定', 'en': 'OK'},
+ 'disclaimer_title': {'zh': '免责声明与数据说明', 'en': 'Disclaimer & Data Sources'},
+ 'locked': {'zh': '至少需要保留一个可见入口', 'en': 'Keep at least one entry visible'},
+ 'base': {'zh': '基准', 'en': 'Base'},
+ 'updated': {'zh': '更新', 'en': 'Updated'},
+ 'latest': {'zh': '最新价', 'en': 'Latest'},
+ 'source': {'zh': '源', 'en': 'Source'}})
+
+
+def ticker_prefix(config):
+    return "金" if resolve_language(config.get("language", "auto")) == "zh" else "Au"
+
+
 def detect_system_language() -> str:
     """检测当前操作系统语言，返回 'zh' 或 'en'"""
     try:

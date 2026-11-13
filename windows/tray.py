@@ -27,6 +27,8 @@ from core.constants import (
     SYMBOL_ZS_JCJ,
 )
 from core.pricing import QuoteData
+from core.i18n import ticker_prefix, t, resolve_language
+from core.constants import DISCLAIMER_EN
 
 # 颜色常量
 COLOR_RED = "#ff5751"       # 涨红
@@ -110,7 +112,7 @@ def calculate_quote_delta(
     if not is_quote_valid(quote):
         return 0.0, 0.0
 
-    base_price = quote.prev_close if change_basis == "prev_close" else quote.open_price
+    base_price = quote.prev_close if change_basis in ("prev_close", "prevClose") else quote.open_price
     if base_price <= 0:
         base_price = quote.prev_close if quote.prev_close > 0 else quote.open_price
 
@@ -130,9 +132,9 @@ def get_quote_color(
     if abs(diff) < 1e-4:
         return COLOR_MUTED
     if diff > 0:
-        return COLOR_RED if color_mode == "red-up" else COLOR_GREEN
+        return COLOR_RED if color_mode in ("red-up", "cny") else COLOR_GREEN
     else:
-        return COLOR_GREEN if color_mode == "red-up" else COLOR_RED
+        return COLOR_GREEN if color_mode in ("red-up", "cny") else COLOR_RED
 
 
 def can_toggle_entry(current_desktop: bool, current_tray: bool, toggling_target: str) -> bool:
@@ -187,7 +189,7 @@ def create_tray_image(
 
     # 1. 判定前缀字符（等宽排版：国内模式“金”，国际模式“Au”）
     symbol = quote.symbol if quote else config.get("symbol", SYMBOL_ZS_JCJ)
-    prefix = "Au" if symbol == SYMBOL_XAU_USD else "金"
+    prefix = ticker_prefix(config)
 
     diff, pct = calculate_quote_delta(quote, change_basis)
     color = get_quote_color(diff, color_mode)
@@ -220,7 +222,7 @@ def create_tray_image(
     text_x = badge_x1 + 6
     if not is_quote_valid(quote):
         price_str = "--"
-        pct_str = "未就绪"
+        pct_str = "--"
         val_color = COLOR_MUTED
     else:
         price_str = f"{quote.price:.2f}"
@@ -245,34 +247,24 @@ def create_tray_image(
 
 def build_tray_tooltip(quote: Optional[QuoteData], config: Dict[str, Any]) -> str:
     """生成 Windows 托盘图标鼠标悬停 Tooltip 文本（全量行情数据与免责声明）。"""
-    symbol = config.get("symbol", SYMBOL_ZS_JCJ)
+    lang = resolve_language(config.get("language", "auto"))
+    text = lambda key: t(key, lang)
+    symbol = quote.symbol if quote else config.get("symbol", SYMBOL_ZS_JCJ)
     meta = SYMBOL_META.get(symbol, {})
-    symbol_name = meta.get("name_cn", symbol)
-    currency = meta.get("currency", "CNY")
-
+    name = meta.get("name_cn" if lang == "zh" else "name_en", symbol)
+    disclaimer = DISCLAIMER_CN if lang == "zh" else DISCLAIMER_EN
     if not is_quote_valid(quote):
-        return f"GoldTicker\n{symbol_name}: 获取中…\n{DISCLAIMER_CN}"
-
-    change_basis = config.get("changeBasis", "prev_close")
-    basis_name = "昨收" if change_basis == "prev_close" else "今开"
-    diff, pct = calculate_quote_delta(quote, change_basis)
-    sign = "+" if diff > 0 else ""
-
-    lines = [
-        f"GoldTicker · {symbol_name}",
-        f"最新价: {quote.price:.2f} {currency} ({sign}{diff:.2f}, {pct:+.2f}%)",
-        f"基准({basis_name}): {quote.prev_close:.2f} | 今开: {quote.open_price:.2f}",
-        f"最高: {quote.high:.2f} | 最低: {quote.low:.2f}",
-        f"更新: {quote.time_str} (源: {quote.source_name})",
-    ]
-
-    if symbol == SYMBOL_ZS_JCJ and "zs_jcj" in DEFAULT_BANK_SPREADS:
-        spread = DEFAULT_BANK_SPREADS["zs_jcj"]
-        buy_p = quote.price + spread["buy_fee"]
-        sell_p = quote.price - spread["sell_fee"]
-        lines.append(f"浙商银行参考: 买入 {buy_p:.2f} | 卖出 {sell_p:.2f}")
-
+        return f"GoldTicker · {ticker_prefix(config)} --\n{name}: {text('fetch_error') if quote and quote.error else text('refreshing')}"
+    basis = config.get("changeBasis", "prevClose")
+    prev = basis in ("prevClose", "prev_close")
+    base_price = quote.prev_close if prev else quote.open_price
+    basis_name = text("prev_close" if prev else "open_price")
+    diff, pct = calculate_quote_delta(quote, basis)
+    lines = [f"GoldTicker · {name}" + (" " + text("estTag") if quote.is_estimated else ""),
+        f"{text('latest')}: {quote.price:.2f} {meta.get('currency', 'CNY')} ({diff:+.2f}, {pct:+.2f}%)",
+        f"{text('base')}({basis_name}): {base_price:.2f} | {text('open_price')}: {quote.open_price:.2f}",
+        f"{text('high')}: {quote.high:.2f} | {text('low')}: {quote.low:.2f}",
+        f"{text('updated')}: {quote.time_str}"]
     if config.get("showDisclaimer", True):
-        lines.append(f"\n{DISCLAIMER_CN}")
-
+        lines.append(disclaimer)
     return "\n".join(lines)

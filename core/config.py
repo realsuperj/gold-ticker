@@ -33,11 +33,16 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 }
 
 VALID_WIDTHS = (180, 200, 216, 240, 280)
-VALID_REFRESH_INTERVALS = (10, 15, 30, 60)
+VALID_REFRESH_INTERVALS = (10, 15, 30, 60, 300)
 
 
 def get_app_data_dir() -> Path:
     """获取跨平台标准应用数据存储路径。"""
+    override = os.environ.get("GOLDTICKER_DATA_DIR")
+    if override:
+        base = Path(override).expanduser().resolve()
+        base.mkdir(parents=True, exist_ok=True)
+        return base
     system = platform.system()
     if system == "Darwin":
         base = Path.home() / "Library" / "Application Support" / "GoldTicker"
@@ -62,6 +67,17 @@ def sanitize_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
     res = dict(DEFAULT_CONFIG)
     if not isinstance(cfg, dict):
         return res
+
+    cfg = dict(cfg)
+    for old, new in (
+        ("refreshInterval", "refreshSeconds"),
+        ("showMenuBar", "showMenuBarIcon"),
+        ("dataSource", "symbol"),
+    ):
+        if new not in cfg and old in cfg:
+            cfg[new] = cfg[old]
+    cfg["colorMode"] = {"red-up": "cny", "green-up": "intl"}.get(cfg.get("colorMode"), cfg.get("colorMode", "cny"))
+    cfg["changeBasis"] = {"prev_close": "prevClose", "open_price": "open"}.get(cfg.get("changeBasis"), cfg.get("changeBasis", "prevClose"))
 
     # 标的合法性
     sym = str(cfg.get("symbol", SYMBOL_AU9999)).strip()

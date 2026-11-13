@@ -9,6 +9,8 @@ if str(REPO_ROOT) not in sys.path:
 
 from core.config import DEFAULT_CONFIG
 from core.constants import SYMBOL_AU9999, SYMBOL_XAU_USD
+if sys.platform != "darwin":
+    raise unittest.SkipTest("macOS AppKit tests require macOS")
 from mac.main import I18N, calc_window_height, get_current_lang
 
 

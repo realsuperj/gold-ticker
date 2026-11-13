@@ -120,7 +120,7 @@ class TestWindowsTrayEngine(unittest.TestCase):
 
     def test_tooltip_content_fullness(self):
         """AC-1: 验证 Tooltip 包含全量行情字段与免责声明。"""
-        tooltip = build_tray_tooltip(self.valid_quote_cn, {"symbol": SYMBOL_ZS_JCJ, "showDisclaimer": True})
+        tooltip = build_tray_tooltip(self.valid_quote_cn, {"symbol": SYMBOL_ZS_JCJ, "showDisclaimer": True, "language": "zh"})
         self.assertIn("GoldTicker", tooltip)
         self.assertIn("浙商", tooltip)
         self.assertIn("871.50", tooltip)

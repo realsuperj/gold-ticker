@@ -1,15 +1,9 @@
-# GoldTicker Windows 版
+# GoldTicker Windows
 
-## 使用
+下载 `GoldTicker.exe`，或解压 `GoldTicker-Windows-x64.zip` 后运行其中的 EXE，无需安装 Python。桌面卡片与通知区域托盘均可打开完整设置菜单，至少保留一个可见入口。托盘图标由系统通知区域按系统尺寸显示，不承诺任务栏内常驻完整文字。
 
-将 `GoldTicker-Windows-x64.zip` **完整解压**到任意文件夹，双击解压后的 `GoldTicker/GoldTicker.exe`。`_internal` 是运行时依赖，必须与 EXE 放在同一个文件夹。无需单独安装 Python。第一次启动默认在桌面右上角显示悬浮价，同时在 Windows 任务栏上沿显示一条小价格条（如「金 869.13 +0.05%」）。价格条始终直接显示完整价格，点击或右键它打开设置；右键桌面悬浮窗也能打开设置。拖动卡片改变位置。任务栏内部的常驻文字没有普通应用可用的接口，因此价格条紧贴任务栏上沿，不占用任务栏本体。通知区域矿石图标默认关闭，可在菜单中按需开启。软件的 EXE 使用同款矿石图标；悬浮卡片与价格条上没有图标，也不会发 Windows 弹窗通知。
+支持切换标的、走势图、明细、置顶、宽度、透明度、涨跌基准、配色、刷新间隔、跟随系统/中文/英文，以及关于、免责声明和数据维护。中文前缀为“金”，英文为“Au”。产品图标与版本和 macOS 共用。
 
-菜单支持桌面悬浮窗、走势图、最高/最低/基准价、窗口置顶、常驻价格条、可选的通知区域图标，以及涨跌基准（昨收/今开）、数据源、刷新周期、宽度与透明度。桌面悬浮窗、价格条、通知区域图标三者至少保留一个菜单入口。
+配置位于 `%APPDATA%\GoldTicker\config.json`；分时数据沿用本地采样与存储格式。浙商积存金、Au99.99 与美元报价的国际金相互独立；工行/建行按共享核心点差估算并明确标记。
 
-配置在 `%APPDATA%\GoldTicker\config.json`。今日走势图由本机每次刷新采样生成，首次启动只显示累积提示，采样随运行逐渐增多，来自不同数据源的曲线相互隔离。数据源顺序：糖豆子浙商积存金 → 新浪 Au99.99 → 新浪 Au(T+D) → 新浪伦敦金按美元兑人民币汇率折算。自动模式在当前源请求失败后切换，失败源冷却 180 秒；手动选源时固定当前源。4 个源均为第三方接口，报价可能有延迟；切换备用源时商品口径随名称变化，并非浙商积存金的官方报价。
-
-## 构建与检验
-
-在 Intel macOS/Linux + Docker 环境从项目根目录运行 `./build-windows.sh`。该脚本通过 Windows 官方 Python 安装包、Wine 和 PyInstaller 制作 `dist/windows/GoldTicker/`。生成便携 ZIP 和 SHA-256 校验文件，在项目根目录执行 `./package-windows.sh`。源码及构建脚本在同一项目内。可运行 `python3 -B windows/main.py --self-test` 测试数据转换、设置与分时采样逻辑。
-
-采用 PyInstaller `--onedir --windowed`，未开启 UPX、未注入或修改系统配置；这样能减少解包型单文件程序常见的误报因素。**未经代码签名的 EXE 仍可能触发 Windows SmartScreen 或安全软件告警**；若需公开分发，应取得可信代码签名证书并在 Windows 上对构建产物签名、保留固定版本和哈希、提交误报样本给对应厂商。关闭杀毒软件或添加全盘排除项不属于部署步骤。
+源码：`python goldticker.py`。构建：先安装 `requirements.txt` 和 `pyinstaller>=6.11,<7`，再运行 `python tools/build.py`。本地和 CI 使用同一 `GoldTicker.spec`，输出 `dist/windows/GoldTicker.exe`、ZIP 和 SHA-256 文件。`python goldticker.py --smoke-test` 使用隔离临时数据执行离线原生界面冒烟。Wine 脚本仅为辅助构建，不替代真实 Windows GUI 验证。

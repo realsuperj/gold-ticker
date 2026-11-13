@@ -172,6 +172,23 @@ class TestCorePricing(unittest.TestCase):
         self.assertEqual(q.time_str, "14:30")
         self.assertFalse(q.is_estimated)
 
+    def test_fetch_tangdouz_real_byte_regression(self):
+        # 回归：真实接口返回 UTF-8，但其字节可被 gb18030 无异常误解为乱码。
+        # 旧实现先按 gb18030 解码导致浙商源解析失败，必须先按 UTF-8 严格解码。
+        from unittest.mock import patch
+        import core.pricing as cp
+        real = (
+            "浙商银行积存金价格信息\n====================\n产品名称: 浙商银行积存金\n产品代码: JCJ\n"
+            "最新价格: 837.82 元\n涨跌额: 4.81 元\n涨跌幅: 0.58%\n开盘价: 832.99 元\n最高价: 843.63 元\n"
+            "最低价: 831.97 元\n前收盘价: 833.01 元\n成交量: 1\n更新时间: 2026-11-13 15:42:15\n"
+        ).encode("utf-8")
+        with patch.object(cp, "http_get", return_value=real):
+            pack = cp.fetch_tangdouz_raw()
+        self.assertEqual(pack[0], 837.82)
+        self.assertEqual(pack[1], 833.01)
+        self.assertEqual(pack[2], 832.99)
+        self.assertEqual(pack[7], "15:42")
+
     @patch("core.pricing.http_get")
     def test_bank_spread_estimation(self, mock_get):
         # 模拟新浪 Au99.99
@@ -209,6 +226,28 @@ class TestCorePricing(unittest.TestCase):
         statuses = self.engine.get_source_statuses()
         tangdouz_st = [s for s in statuses if s["source_id"] == "tangdouz"][0]
         self.assertTrue(tangdouz_st["cooling"])
+
+    @patch("core.pricing.fetch_sina_xau_raw")
+    @patch("core.pricing.fetch_tangdouz_raw")
+    @patch("core.pricing.fetch_sina_au9999_raw")
+    def test_sample_all_quotes_covers_supported(self, mock_au, mock_zs, mock_xau):
+        mock_au.return_value = (870.0, 865.0, 866.0, 872.0, 864.0, 5.0, 0.58, "15:00")
+        mock_zs.return_value = (871.5, 868.0, 869.0, 873.0, 867.0, 3.5, 0.4, "15:01")
+        mock_xau.return_value = (
+            (2650.5, 2645.0, 2648.0, 2660.0, 2640.0, 5.5, 0.21, "15:30"),
+            2650.5,
+            7.24,
+        )
+        quotes = self.engine.sample_all_quotes()
+        for sym in SUPPORTED_SYMBOLS:
+            self.assertIn(sym, quotes)
+            self.assertGreater(quotes[sym].price, 0)
+        self.assertEqual(quotes[SYMBOL_ZS_JCJ].price, 871.5)
+        self.assertEqual(quotes[SYMBOL_AU9999].price, 870.0)
+        self.assertEqual(
+            quotes[SYMBOL_ICBC_JCJ].price,
+            round(870.0 + DEFAULT_BANK_SPREADS[SYMBOL_ICBC_JCJ], 2),
+        )
 
 
 if __name__ == "__main__":

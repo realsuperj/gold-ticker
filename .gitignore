@@ -20,6 +20,7 @@ ENV/
 # PyInstaller intermediate files
 *.manifest
 build/win-pyinstaller/
+build/pyinstaller/
 build/GoldTicker.spec
 !build_windows.spec
 

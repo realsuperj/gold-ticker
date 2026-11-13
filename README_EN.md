@@ -21,11 +21,10 @@
 
 <p align="center">
   <img src="docs/preview-zs-en.png" width="380" alt="CZBank Gold Accumulation (macOS Native Card)" />
-  &nbsp;&nbsp;
   <img src="docs/preview-intl-en.png" width="380" alt="Spot Gold XAU/USD (macOS Native Card)" />
 </p>
 <p align="center">
-  <sub>Left: CZBank Gold Accumulation (Smooth Intraday Chart, CNY/g) &nbsp; | &nbsp; Right: Spot Gold XAU/USD (Real-time Quote, USD/oz)</sub>
+  <sub>CZBank Gold (CNY/g) and Spot Gold (USD/oz). Illustrative data rendered by the production macOS card; these are not live market screenshots.</sub>
 </p>
 
 </div>
@@ -63,15 +62,20 @@ GoldTicker is committed to transparent financial data processing. The quote mode
 
 ### Method 1: Download Release Binaries (Recommended)
 Visit the [Releases](https://github.com/realsuperj/gold-ticker/releases) page to download pre-built packages:
-- **macOS**: Download `GoldTicker-macOS-Universal2.dmg`, double click and drag to `Applications`.
-- **Windows**: Download standalone `GoldTicker.exe` (or `GoldTicker-standalone-win-x64.zip`), double click to run directly without dependencies.
+- **macOS**: Download `GoldTicker-macOS-<arch>.dmg`, double click and drag to `Applications`.
+- **Windows**: Download standalone `GoldTicker.exe` (or `GoldTicker-Windows-x64.zip`), double click to run directly without dependencies.
 
 ### Method 2: Run from Source
+
+Both platforms start with `python goldticker.py`; absolute paths work from any directory.
+
+Local builds and CI both run `python tools/build.py` using `GoldTicker.spec`. Packages include Python and runtime dependencies. Mac artifacts identify the actual architecture (arm64 or x86_64), not Universal2. `python goldticker.py --smoke-test` runs an offline native UI smoke check with temporary configuration.
 
 #### macOS Local Install & Launch
 ```bash
 # 1. Install dependencies (Python 3.9+)
 pip install -r requirements.txt
+pip install "pyinstaller>=6.11,<7"
 
 # 2. Install as native macOS App
 ./install.sh                # Install to ~/Applications/GoldTicker.app
@@ -82,9 +86,10 @@ pip install -r requirements.txt
 ```powershell
 # 1. Install dependencies
 pip install -r requirements.txt
+pip install "pyinstaller>=6.11,<7"
 
 # 2. Start Windows presentation layer
-python windows/main.py
+python goldticker.py
 ```
 
 ---
@@ -93,18 +98,18 @@ python windows/main.py
 
 Right-click on the desktop floating card, or click the menu bar / system tray icon to reveal all options:
 
-| <nobr>Category&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</nobr> | <nobr>Option&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</nobr> | Description |
+| Category | Option | Description |
 | :--- | :--- | :--- |
-| <nobr>**View Entry**</nobr> | Show on Desktop / Show on Menu Bar | Independently hide the floating card while keeping menu bar active |
-| <nobr>**Chart Auxiliary**</nobr> | Show Chart / Show Details | Toggle intraday trend chart and High/Low/Base values |
-| <nobr>**Window Level**</nobr> | Always on Top | Float above all windows or stay on desktop level |
-| <nobr>**Target Selection**</nobr> | Au99.99 / Spot Gold / CZBank / ICBC / CCB | Quick switch between domestic gold and international quotes |
-| <nobr>**Change Basis**</nobr> | Prev Close / Open Price | Switch reference baseline for delta and percentage calculations |
-| <nobr>**Color Scheme**</nobr> | Red Up Green Down / Green Up Red Down | User-centric color rule that applies globally across all targets |
-| <nobr>**Language**</nobr> | Auto / 简体中文 / English | Seamless lightweight bilingual interface switching |
-| <nobr>**Refresh Interval**</nobr> | 10s / 15s / 30s / 60s / 300s | Flexible polling frequency options |
-| <nobr>**Customization**</nobr> | Width (180~280pt) / Opacity (60%~100%) | Multi-tier visual dimensions |
-| <nobr>**Maintenance**</nobr> | Open Config Dir / Reset Position / Reload | Quick access to configuration file and window repositioning |
+| **View Entry** | Show on Desktop / Show on Menu Bar | Independently hide the floating card while keeping menu bar active |
+| **Chart Auxiliary** | Show Chart / Show Details | Toggle intraday trend chart and High/Low/Base values |
+| **Window Level** | Always on Top | Float above all windows or stay on desktop level |
+| **Target Selection** | Au99.99 / Spot Gold / CZBank / ICBC / CCB | Quick switch between domestic gold and international quotes |
+| **Change Basis** | Prev Close / Open Price | Switch reference baseline for delta and percentage calculations |
+| **Color Scheme** | Red Up Green Down / Green Up Red Down | User-centric color rule that applies globally across all targets |
+| **Language** | Auto / 简体中文 / English | Seamless lightweight bilingual interface switching |
+| **Refresh Interval** | 10s / 15s / 30s / 60s / 300s | Flexible polling frequency options |
+| **Customization** | Width (180~280pt) / Opacity (60%~100%) | Multi-tier visual dimensions |
+| **Maintenance** | Open Config Dir / Reset Position / Reload | Quick access to configuration file and window repositioning |
 
 ---
 

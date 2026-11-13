@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from core.constants import (
     COOL_DOWN_SECONDS,
     DEFAULT_BANK_SPREADS,
+    SUPPORTED_SYMBOLS,
     SYMBOL_AU9999,
     SYMBOL_CCB_JCJ,
     SYMBOL_ICBC_JCJ,
@@ -93,7 +94,7 @@ def _get_ssl_context() -> ssl.SSLContext:
 _GLOBAL_SSL_CTX: Optional[ssl.SSLContext] = None
 
 
-def http_get(url: str, headers: Optional[Dict[str, str]] = None, timeout: int = 10) -> bytes:
+def http_get(url: str, headers: Optional[Dict[str, str]] = None, timeout: int = 5) -> bytes:
     """轻量 HTTP GET 请求。"""
     global _GLOBAL_SSL_CTX
     if _GLOBAL_SSL_CTX is None:
@@ -134,10 +135,12 @@ def _calc_pack(price: float, prev: float, op: float, high: float, low: float, tm
 def fetch_tangdouz_raw() -> Tuple[float, float, float, float, float, float, float, str]:
     """抓取糖豆子浙商积存金。"""
     raw = http_get(TANGDOUZ_URL)
+    # 真实接口返回 UTF-8；其字节常可被 gb18030 无异常地误解成乱码，
+    # 因此必须先按 UTF-8 严格解码，失败再回退 gb18030（与新浪源相反）。
     try:
-        text = raw.decode("gb18030")
+        text = raw.decode("utf-8")
     except Exception:
-        text = raw.decode("utf-8", "ignore")
+        text = raw.decode("gb18030", "ignore")
 
     lines = {line.split(":")[0].strip(): line.split(":", 1)[1].strip() for line in text.splitlines() if ":" in line}
 
@@ -273,6 +276,109 @@ class PricingEngine:
                 "last_error": rec.get("last_err", ""),
             })
         return res
+
+    def get_cached_quote(self, symbol: str) -> Optional[QuoteData]:
+        """返回该标的最近一次成功行情副本，供切标的时立刻上屏。"""
+        last = self._last_good_quote.get(symbol)
+        if not last:
+            return None
+        return QuoteData(**last.to_dict())
+
+    def _quote_from_pack(
+        self,
+        symbol: str,
+        pack: Tuple[float, float, float, float, float, float, float, str],
+        source_id: str,
+        source_name: str,
+        *,
+        is_estimated: bool = False,
+        fx_rate: float = 0.0,
+        usd_price: float = 0.0,
+    ) -> QuoteData:
+        p, prev, op, h, l, chg, pct, tm = pack
+        spread = DEFAULT_BANK_SPREADS.get(symbol, 0.0)
+        if spread > 0:
+            p = round(p + spread, 2)
+            prev = round(prev + spread, 2)
+            op = round(op + spread, 2)
+            h = round(h + spread, 2)
+            l = round(l + spread, 2)
+            chg = round(p - prev, 2)
+            pct = round((chg / prev * 100.0), 2) if prev > 0 else 0.0
+            source_name = f"{source_name} (点差估算)"
+            is_estimated = True
+        quote = QuoteData(
+            symbol=symbol,
+            price=p,
+            prev_close=prev,
+            open_price=op,
+            high=h,
+            low=l,
+            change=chg,
+            change_pct=pct,
+            time_str=tm,
+            source_id=source_id,
+            source_name=source_name,
+            is_estimated=is_estimated,
+            fx_rate=fx_rate,
+            usd_price=usd_price,
+        )
+        self._last_good_quote[symbol] = quote
+        return quote
+
+    def sample_all_quotes(self) -> Dict[str, QuoteData]:
+        """一轮抓取覆盖全部标的：国际/浙商/国内基准各最多一次，银行点差本地套算。
+
+        供后台轮询写入全日分时，避免“只有切到的标的才有点 → 走势断层”。
+        """
+        out: Dict[str, QuoteData] = {}
+
+        try:
+            usd_pack, raw_usd, rate = fetch_sina_xau_raw()
+            self.record_success("sina_xau")
+            out[SYMBOL_XAU_USD] = self._quote_from_pack(
+                SYMBOL_XAU_USD, usd_pack, "sina_xau", "伦敦金现货",
+                fx_rate=rate, usd_price=raw_usd,
+            )
+        except Exception as e:
+            self.record_failure("sina_xau", str(e))
+            cached = self.get_cached_quote(SYMBOL_XAU_USD)
+            if cached:
+                out[SYMBOL_XAU_USD] = cached
+
+        zs_ok = False
+        if not self.is_cooling_down("tangdouz"):
+            try:
+                pack = fetch_tangdouz_raw()
+                self.record_success("tangdouz")
+                out[SYMBOL_ZS_JCJ] = self._quote_from_pack(
+                    SYMBOL_ZS_JCJ, pack, "tangdouz", "浙商银行直连",
+                )
+                zs_ok = True
+            except Exception as e:
+                self.record_failure("tangdouz", str(e))
+        if not zs_ok:
+            cached = self.get_cached_quote(SYMBOL_ZS_JCJ)
+            if cached:
+                out[SYMBOL_ZS_JCJ] = cached
+
+        try:
+            pack, sid, sname = self.fetch_benchmark_au9999()
+            for symbol in (SYMBOL_AU9999, SYMBOL_ICBC_JCJ, SYMBOL_CCB_JCJ):
+                out[symbol] = self._quote_from_pack(symbol, pack, sid, sname)
+        except Exception:
+            for symbol in (SYMBOL_AU9999, SYMBOL_ICBC_JCJ, SYMBOL_CCB_JCJ):
+                cached = self.get_cached_quote(symbol)
+                if cached:
+                    out[symbol] = cached
+
+        # 保底：任何未拿到的标的回落缓存，方便调用方统一遍历
+        for symbol in SUPPORTED_SYMBOLS:
+            if symbol not in out:
+                cached = self.get_cached_quote(symbol)
+                if cached:
+                    out[symbol] = cached
+        return out
 
     def fetch_benchmark_au9999(self) -> Tuple[Tuple[float, float, float, float, float, float, float, str], str, str]:
         """按优先级尝试抓取国内现货基准 (sina_au9999 -> sina_autd -> tangdouz)。"""

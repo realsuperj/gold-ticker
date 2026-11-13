@@ -28,15 +28,7 @@ if [ ! -f /wine/drive_c/Python/python.exe ]; then
   exit 1
 fi
 PY='C:\Python\python.exe'
-"$WINE" "$PY" -m pip install --disable-pip-version-check 'pyinstaller==6.11.1' 'pystray==0.19.5' 'Pillow==11.1.0' 'certifi==2024.12.14'
-"$WINE" "$PY" -m PyInstaller --noconfirm --clean --onedir --windowed \
-  --name GoldTicker --icon 'Z:\work\build\GoldTicker.ico' \
-  --version-file 'Z:\work\windows\version.txt' --noupx \
-  --hidden-import pystray._win32 \
-  --add-data 'Z:\work\windows\icon.png;windows' \
-  --distpath 'Z:\work\dist\windows' \
-  --workpath 'Z:\work\build\win-pyinstaller' \
-  --specpath 'Z:\work\build' \
-  'Z:\work\windows\main.py'
-test -s /work/dist/windows/GoldTicker/GoldTicker.exe
-printf 'Built: /work/dist/windows/GoldTicker/GoldTicker.exe\n'
+cd /work
+"$WINE" "$PY" -m pip install --disable-pip-version-check -r 'Z:\work\requirements.txt' 'pyinstaller>=6.11,<7'
+"$WINE" "$PY" 'Z:\work\tools\build.py'
+test -s /work/dist/windows/GoldTicker.exe

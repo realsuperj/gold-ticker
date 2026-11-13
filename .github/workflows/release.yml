@@ -1,193 +1,73 @@
-name: Release GoldTicker
-
+name: Test and Release
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - 'v*'
-
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
 permissions:
-  contents: write
-
+  contents: read
 jobs:
-  build-macos:
-    name: Build macOS Universal2 DMG
-    runs-on: macos-latest
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run unit tests
-        run: |
-          python -m unittest discover -s tests
-
-      - name: Build GoldTicker.app & DMG
-        run: |
-          APP_NAME="GoldTicker.app"
-          APP_DIR="dist/macos/$APP_NAME"
-          BIN_DIR="$APP_DIR/Contents/MacOS"
-          RES_DIR="$APP_DIR/Contents/Resources"
-
-          mkdir -p "$BIN_DIR" "$RES_DIR"
-
-          # 拷贝 core 与 mac 表现层代码至 Resources
-          cp -r core "$RES_DIR/"
-          cp -r mac "$RES_DIR/"
-
-          # 生成或拷贝 App 图标
-          if [ ! -f "build/AppIcon.icns" ]; then
-            python tools/make_icon.py || true
-          fi
-          if [ -f "build/AppIcon.icns" ]; then
-            cp build/AppIcon.icns "$RES_DIR/AppIcon.icns"
-          fi
-
-          # 写入可执行启动脚本
-          cat > "$BIN_DIR/GoldTicker" << 'EOF'
-          #!/bin/bash
-          DIR="$(cd "$(dirname "$0")/../Resources" && pwd)"
-          export PYTHONPATH="$DIR:$PYTHONPATH"
-          exec python3 "$DIR/mac/main.py" "$@"
-          EOF
-          chmod +x "$BIN_DIR/GoldTicker"
-
-          # 写入标准 Info.plist
-          cat > "$APP_DIR/Contents/Info.plist" << 'PLISTEOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleName</key><string>GoldTicker</string>
-            <key>CFBundleDisplayName</key><string>金价</string>
-            <key>CFBundleIdentifier</key><string>com.superj.goldticker</string>
-            <key>CFBundleVersion</key><string>1.0</string>
-            <key>CFBundleShortVersionString</key><string>1.0</string>
-            <key>CFBundlePackageType</key><string>APPL</string>
-            <key>CFBundleExecutable</key><string>GoldTicker</string>
-            <key>CFBundleIconFile</key><string>AppIcon</string>
-            <key>LSUIElement</key><true/>
-            <key>LSMinimumSystemVersion</key><string>11.0</string>
-            <key>NSHighResolutionCapable</key><true/>
-          </dict>
-          </plist>
-          PLISTEOF
-
-          # ad-hoc 签名
-          codesign --force --deep --sign - "$APP_DIR" || true
-
-          # 构建 Universal2 DMG
-          DMG_NAME="GoldTicker-macOS-Universal2.dmg"
-          hdiutil create -volname "GoldTicker" -srcfolder "$APP_DIR" -ov -format UDZO "$DMG_NAME"
-          shasum -a 256 "$DMG_NAME" > "${DMG_NAME}.sha256"
-
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-artifacts
-          path: |
-            GoldTicker-macOS-Universal2.dmg
-            GoldTicker-macOS-Universal2.dmg.sha256
-
-  build-windows:
-    name: Build Windows x64 Portable
-    runs-on: windows-latest
+      - run: python -m pip install -r requirements.txt
+      - run: python -B -m unittest discover -s tests
+      - run: python goldticker.py --smoke-test
+  build:
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            name: macos-arm64
+          - os: windows-latest
+            name: windows-x64
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller
-
-      - name: Run unit tests
-        run: |
-          python -m unittest discover -s tests
-
-      - name: Generate Windows Icon & Build EXE
-        shell: bash
-        run: |
-          mkdir -p build
-          python - << 'PY'
-          from PIL import Image
-          import os
-          if os.path.exists('docs/icon-1024.png'):
-              img = Image.open('docs/icon-1024.png').convert('RGBA')
-              img.save('build/GoldTicker.ico', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
-          PY
-
-          # 统一使用 onefile 单文件模式打包独立纯绿色版 EXE
-          pyinstaller --noconfirm --clean --onefile --windowed \
-            --name GoldTicker \
-            --icon build/GoldTicker.ico \
-            --version-file windows/version.txt \
-            --hidden-import pystray._win32 \
-            --hidden-import PIL._tkinter_finder \
-            --add-data "core;core" \
-            --add-data "windows;windows" \
-            --distpath dist/windows \
-            windows/main.py
-
-      - name: Package Windows ZIP & SHA-256
-        shell: pwsh
-        run: |
-          Copy-Item dist/windows/GoldTicker.exe GoldTicker.exe
-          Compress-Archive -Path dist/windows/GoldTicker.exe -DestinationPath GoldTicker-Windows-x64.zip
-          $hashZip = (Get-FileHash GoldTicker-Windows-x64.zip -Algorithm SHA256).Hash.ToLower()
-          "$hashZip  GoldTicker-Windows-x64.zip" | Out-File -FilePath GoldTicker-Windows-x64.zip.sha256 -Encoding ascii
-
-          $hashExe = (Get-FileHash GoldTicker.exe -Algorithm SHA256).Hash.ToLower()
-          "$hashExe  GoldTicker.exe" | Out-File -FilePath GoldTicker.exe.sha256 -Encoding ascii
-
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+      - run: python -m pip install -r requirements.txt 'pyinstaller>=6.11,<7'
+      - run: python tools/build.py
+      - if: runner.os == 'macOS'
+        run: dist/macos/GoldTicker.app/Contents/MacOS/GoldTicker --smoke-test
+      - if: runner.os == 'Windows'
+        run: Start-Process -FilePath dist/windows/GoldTicker.exe -ArgumentList '--smoke-test' -Wait -PassThru | ForEach-Object { if ($_.ExitCode -ne 0) { exit $_.ExitCode } }
+      - uses: actions/upload-artifact@v4
         with:
-          name: windows-artifacts
+          name: ${{ matrix.name }}
           path: |
-            GoldTicker.exe
-            GoldTicker.exe.sha256
-            GoldTicker-Windows-x64.zip
-            GoldTicker-Windows-x64.zip.sha256
-
+            dist/**/*.dmg
+            dist/**/*.zip
+            dist/**/*.exe
+            dist/**/*.sha256
   publish-draft-release:
-    name: Publish Draft Release
-    needs: [build-macos, build-windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: macos-artifacts
+          pattern: '*'
           path: release-assets
-
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-artifacts
-          path: release-assets
-
-      - name: Create Draft Release
-        uses: softprops/action-gh-release@v2
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
         with:
           draft: true
           prerelease: false
           generate_release_notes: true
-          files: |
-            release-assets/*
+          files: release-assets/**/*

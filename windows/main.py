@@ -45,11 +45,15 @@ from core.constants import (
 )
 from core.pricing import PricingEngine, QuoteData, default_engine
 from core.storage import (
+    apply_frozen_basis,
     cleanup_old_history,
     clear_intraday_cache,
+    freeze_day_basis,
     load_today_points,
     record_price_point,
 )
+from core.i18n import t, resolve_language, ticker_prefix
+from core.product import VERSION, COPYRIGHT, resource_path
 from windows.tray import (
     COLOR_GREEN,
     COLOR_MUTED,
@@ -101,6 +105,8 @@ class GoldTickerWindowsApp:
         self.root: tk.Tk = root or tk.Tk()
         self.root.title("GoldTicker")
         self.root.configure(bg=BG_DARK)
+        self.product_icon = tk.PhotoImage(file=str(resource_path()))
+        self.root.iconphoto(True, self.product_icon)
 
         # 托盘对象
         self.tray_icon: Optional[Any] = None
@@ -146,7 +152,7 @@ class GoldTickerWindowsApp:
             win_x = max(20, screen_w - width - 30)
             win_y = 60
 
-        self.root.geometry(f"{width}x200+{win_x}+{win_y}")
+        self.root.geometry(f"{width}x200+{int(win_x)}+{int(win_y)}")
 
         # 显示/隐藏卡片
         if not self.config.get("showOnDesktop", True):
@@ -200,7 +206,7 @@ class GoldTickerWindowsApp:
         # 标的前缀徽标（“金”或“Au”）
         self.lbl_prefix = tk.Label(
             self.header_frame,
-            text="金",
+            text=ticker_prefix(self.config),
             font=("Segoe UI", 10, "bold"),
             bg=BG_BADGE,
             fg=TEXT_MAIN,
@@ -233,7 +239,7 @@ class GoldTickerWindowsApp:
         self.details_frame = tk.Frame(self.main_frame, bg=BG_DARK)
         self.lbl_details = tk.Label(
             self.details_frame,
-            text="今开: --  昨收: --\n最高: --  最低: --",
+            text="--",
             font=("Segoe UI", 8),
             bg=BG_DARK,
             fg=TEXT_MUTED,
@@ -264,7 +270,7 @@ class GoldTickerWindowsApp:
         self.footer_frame = tk.Frame(self.main_frame, bg=BG_DARK)
         self.lbl_footer = tk.Label(
             self.footer_frame,
-            text="获取中…",
+            text=self._text("refreshing"),
             font=("Segoe UI", 8),
             bg=BG_DARK,
             fg=TEXT_MUTED,
@@ -310,15 +316,21 @@ class GoldTickerWindowsApp:
             self.chart_canvas.create_text(
                 width / 2,
                 height / 2,
-                text="分时数据累积中…",
+                text=self._text("chart_accumulating"),
                 fill=TEXT_MUTED,
                 font=("Segoe UI", 8),
             )
             return
 
         prices = [p[1] for p in self.intraday_points]
-        min_p = min(prices)
-        max_p = max(prices)
+        # 基准参考价（昨收/今开，已由当日冻结基准保证稳定）
+        change_basis = self.config.get("changeBasis", "prevClose")
+        ref_price = 0.0
+        if self.current_quote is not None:
+            ref_price = (self.current_quote.prev_close if change_basis == "prevClose"
+                         else self.current_quote.open_price)
+        all_vals = list(prices) + ([ref_price] if ref_price > 0 else [])
+        min_p, max_p = min(all_vals), max(all_vals)
         spread = max_p - min_p
         if spread < 1e-4:
             spread = 1.0
@@ -327,24 +339,45 @@ class GoldTickerWindowsApp:
         pad_y = 6
         draw_w = width - pad_x * 2
         draw_h = height - pad_y * 2
+        step_x = draw_w / float(len(prices) - 1)
 
-        coords: List[float] = []
-        n = len(prices)
-        for i, price in enumerate(prices):
-            cx = pad_x + (i / (n - 1)) * draw_w
-            cy = pad_y + (1.0 - (price - min_p) / spread) * draw_h
-            coords.extend([cx, cy])
+        def cy_of(price):
+            return pad_y + (1.0 - (price - min_p) / spread) * draw_h
 
         # 获取曲线颜色
-        diff, _ = calculate_quote_delta(self.current_quote, self.config.get("changeBasis", "prev_close"))
-        line_color = get_quote_color(diff, self.config.get("colorMode", "red-up"))
+        diff, _ = calculate_quote_delta(self.current_quote, self.config.get("changeBasis", "prevClose"))
+        line_color = get_quote_color(diff, self.config.get("colorMode", "cny"))
 
-        # 绘制半透明基底与折线
+        # 基准虚线（在 Y 范围内时）
+        if ref_price > 0:
+            ry = cy_of(ref_price)
+            if pad_y <= ry <= pad_y + draw_h:
+                self.chart_canvas.create_line(
+                    pad_x, ry, pad_x + draw_w, ry,
+                    fill=TEXT_MUTED, width=1, dash=(3, 3),
+                )
+
+        # 当日走势：采样点等距铺满，便于一眼看全日形态
+        coords: List[float] = []
+        for idx, price in enumerate(prices):
+            coords.extend([pad_x + idx * step_x, cy_of(price)])
         self.chart_canvas.create_line(
             coords,
             fill=line_color,
             width=2,
             smooth=True,
+        )
+
+        t_first, t_last = self.intraday_points[0][0], self.intraday_points[-1][0]
+        first_dt = datetime.fromtimestamp(t_first / 1000.0)
+        last_dt = datetime.fromtimestamp(t_last / 1000.0)
+        self.chart_canvas.create_text(
+            pad_x, height - 4, anchor="w",
+            text=first_dt.strftime("%H:%M"), fill=TEXT_MUTED, font=("Segoe UI", 7),
+        )
+        self.chart_canvas.create_text(
+            width - pad_x, height - 4, anchor="e",
+            text=last_dt.strftime("%H:%M"), fill=TEXT_MUTED, font=("Segoe UI", 7),
         )
 
     # ---------------- 双入口互锁防幽灵右键菜单 ----------------
@@ -353,148 +386,123 @@ class GoldTickerWindowsApp:
         """初始化右键菜单与 Action Matrix。"""
         self.menu = tk.Menu(self.root, tearoff=0, bg="#2d333b", fg="#e6edf3", activebackground="#388bfd")
 
+    def _text(self, key):
+        return t(key, self.config.get("language", "auto"))
+
+    def _menu_spec(self):
+        """One action matrix for both the desktop and tray menus."""
+        cfg = self.config
+        def action(key, callback, checked=None, enabled=True):
+            return dict(label=self._text(key), action=callback, checked=checked, enabled=enabled)
+        def choices(key, values, current, setter):
+            return dict(label=self._text(key), children=[
+                dict(label=label, action=lambda value=value: setter(value),
+                     checked=value == current, enabled=True) for value, label in values])
+        desktop, tray = cfg["showOnDesktop"], cfg["showMenuBarIcon"]
+        items = [action("refreshing", self._trigger_immediate_fetch),
+            action("showOnDesktop", self._toggle_desktop, desktop, tray or not desktop),
+            action("showMenuBar", self._toggle_tray_entry, tray, desktop or not tray),
+            action("showChart", self._toggle_chart, cfg["showChart"]),
+            action("showDetails", self._toggle_details, cfg["showDetails"]),
+            action("alwaysOnTop", self._toggle_topmost, cfg["alwaysOnTop"])]
+        lang = resolve_language(cfg.get("language", "auto"))
+        names = [(s, SYMBOL_META[s]["name_cn" if lang == "zh" else "name_en"] +
+                  (" " + self._text("estTag") if SYMBOL_META[s]["is_estimated"] else "")) for s in SUPPORTED_SYMBOLS]
+        items += [choices("symbols", names, cfg["symbol"], self._set_symbol),
+            choices("changeBasis", [("prevClose", self._text("prevClose")), ("open", self._text("openPrice"))], cfg["changeBasis"], self._set_change_basis),
+            choices("colorMode", [("cny", self._text("cnyColors")), ("intl", self._text("intlColors"))], cfg["colorMode"], self._set_color_mode),
+            choices("menu_language", [(v, self._text("menu_lang_" + v)) for v in ("auto", "zh", "en")], cfg["language"], self._set_language),
+            choices("refreshInterval", [(v, f"{v} {self._text('seconds')}") for v in VALID_REFRESH_INTERVALS], cfg["refreshSeconds"], self._set_refresh_interval),
+            choices("cardWidth", [(v, f"{v} pt") for v in VALID_WIDTHS], cfg["width"], self._set_width),
+            choices("cardOpacity", [(v, f"{v:.0%}") for v in (0.60, 0.75, 0.88, 0.95, 1.0)], cfg["opacity"], self._set_opacity),
+            action("openConfigFolder", self._open_config_dir), action("reloadConfig", self._reload_config),
+            action("clearCache", self._clear_cache), action("resetPos", self._reset_position),
+            action("aboutApp", self._show_about), action("viewDisclaimer", self._show_disclaimer),
+            action("visitGithub", self._open_github), action("quitApp", self.quit)]
+        return items
+
     def _on_right_click(self, event: tk.Event) -> None:
-        """构建并弹出上下文菜单，实时计算互锁状态。"""
         self.menu.delete(0, tk.END)
+        self._menu_vars = []
+        def populate(menu, items):
+            for item in items:
+                if "children" in item:
+                    sub = tk.Menu(menu, tearoff=0)
+                    populate(sub, item["children"])
+                    menu.add_cascade(label=item["label"], menu=sub)
+                else:
+                    args = dict(label=item["label"], command=item["action"],
+                                state=tk.NORMAL if item["enabled"] else tk.DISABLED)
+                    if item["checked"] is not None:
+                        var = tk.BooleanVar(value=item["checked"])
+                        self._menu_vars.append(var)
+                        menu.add_checkbutton(variable=var, **args)
+                    else:
+                        menu.add_command(**args)
+        populate(self.menu, self._menu_spec())
+        try:
+            self.menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.menu.grab_release()
 
-        cur_desktop = bool(self.config.get("showOnDesktop", True))
-        cur_tray = bool(self.config.get("showMenuBar", True))
+    def _build_tray_menu(self):
+        def convert(items):
+            result = []
+            for item in items:
+                if "children" in item:
+                    result.append(pystray.MenuItem(item["label"], convert(item["children"])))
+                else:
+                    callback = item["action"]
+                    def dispatch(icon, menu_item, callback=callback):
+                        self.msg_queue.put(callback)
+                    result.append(pystray.MenuItem(item["label"], dispatch,
+                        checked=(lambda menu_item, value=item["checked"]: value) if item["checked"] is not None else None,
+                        enabled=item["enabled"]))
+            return pystray.Menu(*result)
+        return convert(self._menu_spec())
 
-        # 1. 核心视图开关（双入口互锁防幽灵）
-        # 互锁逻辑：若当前 tray 已关闭，桌面开关不可关闭（置灰禁用）
-        can_disable_desk = can_toggle_entry(cur_desktop, cur_tray, "desktop")
-        desk_state = tk.NORMAL if (not cur_desktop or can_disable_desk) else tk.DISABLED
+    def _set_language(self, language):
+        self.config["language"] = language
+        save_config(self.config)
+        self._update_ui_with_quote()
+        self._update_tray()
 
-        self.menu.add_checkbutton(
-            label="显示到桌面" + (" (唯一入口锁定)" if not can_disable_desk else ""),
-            command=self._toggle_desktop,
-            state=desk_state,
-        )
-        self.menu.entryconfigure(0, variable=tk.BooleanVar(value=cur_desktop))
+    def _show_dialog(self, title_key, body):
+        dialog = tk.Toplevel(self.root)
+        dialog.title(self._text(title_key))
+        dialog.iconphoto(True, self.product_icon)
+        dialog.transient(self.root)
+        from PIL import Image, ImageTk
+        icon = ImageTk.PhotoImage(Image.open(resource_path()).resize((64, 64)))
+        label = tk.Label(dialog, image=icon)
+        label.image = icon
+        label.pack(padx=20, pady=(18, 8))
+        tk.Label(dialog, text=self._text(title_key), font=("Segoe UI", 13, "bold")).pack()
+        tk.Label(dialog, text=body, wraplength=390, justify=tk.CENTER).pack(padx=24, pady=12)
+        tk.Button(dialog, text=self._text("ok"), command=dialog.destroy).pack(pady=(0, 16))
+        dialog.grab_set()
 
-        # 托盘入口开关
-        can_disable_tr = can_toggle_entry(cur_desktop, cur_tray, "tray")
-        tray_state = tk.NORMAL if (not cur_tray or can_disable_tr) else tk.DISABLED
-        self.menu.add_checkbutton(
-            label="显示到菜单栏/托盘" + (" (唯一入口锁定)" if not can_disable_tr else ""),
-            command=self._toggle_tray_entry,
-            state=tray_state,
-        )
-        self.menu.entryconfigure(1, variable=tk.BooleanVar(value=cur_tray))
+    def _show_about(self):
+        self._show_dialog("about_title", t("about_body", self.config.get("language", "auto"), version=VERSION, copyright=COPYRIGHT))
 
-        self.menu.add_separator()
+    def _show_disclaimer(self):
+        self._show_dialog("disclaimer_title", DISCLAIMER_CN if resolve_language(self.config.get("language", "auto")) == "zh" else DISCLAIMER_EN)
 
-        # 走势图开关
-        show_chart = self.config.get("showChart", True)
-        self.menu.add_command(
-            label=f"{'✓ ' if show_chart else '   '}显示走势图",
-            command=self._toggle_chart,
-        )
-
-        # 明细开关
-        show_details = self.config.get("showDetails", True)
-        self.menu.add_command(
-            label=f"{'✓ ' if show_details else '   '}显示 高/低/基准价",
-            command=self._toggle_details,
-        )
-
-        # 置顶开关
-        topmost = self.config.get("alwaysOnTop", True)
-        self.menu.add_command(
-            label=f"{'✓ ' if topmost else '   '}窗口置顶",
-            command=self._toggle_topmost,
-        )
-
-        self.menu.add_separator()
-
-        # 标的切换子菜单
-        sub_symbol = tk.Menu(self.menu, tearoff=0, bg="#2d333b", fg="#e6edf3")
-        cur_sym = self.config.get("symbol", SYMBOL_ZS_JCJ)
-        for sym_id in SUPPORTED_SYMBOLS:
-            meta = SYMBOL_META.get(sym_id, {})
-            name = meta.get("name_cn", sym_id)
-            checked = "✓ " if sym_id == cur_sym else "   "
-            sub_symbol.add_command(
-                label=f"{checked}{name}",
-                command=lambda s=sym_id: self._set_symbol(s),
-            )
-        self.menu.add_cascade(label="标的切换", menu=sub_symbol)
-
-        # 涨跌幅基准子菜单
-        sub_basis = tk.Menu(self.menu, tearoff=0, bg="#2d333b", fg="#e6edf3")
-        cur_basis = self.config.get("changeBasis", "prev_close")
-        for b_id, b_name in [("prev_close", "昨收价"), ("open_price", "今开价")]:
-            checked = "✓ " if b_id == cur_basis else "   "
-            sub_basis.add_command(
-                label=f"{checked}{b_name}",
-                command=lambda b=b_id: self._set_change_basis(b),
-            )
-        self.menu.add_cascade(label="涨跌基准", menu=sub_basis)
-
-        # 颜色模式子菜单
-        sub_color = tk.Menu(self.menu, tearoff=0, bg="#2d333b", fg="#e6edf3")
-        cur_col = self.config.get("colorMode", "red-up")
-        for c_id, c_name in [("red-up", "红涨绿跌 (国内习惯)"), ("green-up", "绿涨红跌 (国际习惯)")]:
-            checked = "✓ " if c_id == cur_col else "   "
-            sub_color.add_command(
-                label=f"{checked}{c_name}",
-                command=lambda c=c_id: self._set_color_mode(c),
-            )
-        self.menu.add_cascade(label="红绿配色", menu=sub_color)
-
-        # 刷新频率子菜单 (≥10s)
-        sub_interval = tk.Menu(self.menu, tearoff=0, bg="#2d333b", fg="#e6edf3")
-        cur_inv = int(self.config.get("refreshInterval", 30))
-        for inv in VALID_REFRESH_INTERVALS:
-            checked = "✓ " if inv == cur_inv else "   "
-            sub_interval.add_command(
-                label=f"{checked}{inv} 秒",
-                command=lambda i=inv: self._set_refresh_interval(i),
-            )
-        self.menu.add_cascade(label="刷新频率", menu=sub_interval)
-
-        # 宽度子菜单
-        sub_width = tk.Menu(self.menu, tearoff=0, bg="#2d333b", fg="#e6edf3")
-        cur_w = int(self.config.get("width", 220))
-        for w in VALID_WIDTHS:
-            checked = "✓ " if w == cur_w else "   "
-            sub_width.add_command(
-                label=f"{checked}{w} pt",
-                command=lambda width=w: self._set_width(width),
-            )
-        self.menu.add_cascade(label="卡片宽度", menu=sub_width)
-
-        # 透明度子菜单
-        sub_alpha = tk.Menu(self.menu, tearoff=0, bg="#2d333b", fg="#e6edf3")
-        cur_op = float(self.config.get("opacity", 0.95))
-        for op, label in [(1.0, "100%"), (0.9, "90%"), (0.8, "80%"), (0.7, "70%"), (0.5, "50%")]:
-            checked = "✓ " if abs(op - cur_op) < 0.05 else "   "
-            sub_alpha.add_command(
-                label=f"{checked}{label}",
-                command=lambda val=op: self._set_opacity(val),
-            )
-        self.menu.add_cascade(label="窗口透明度", menu=sub_alpha)
-
-        self.menu.add_separator()
-
-        # 系统与功能操作
-        self.menu.add_command(label="打开配置目录", command=self._open_config_dir)
-        self.menu.add_command(label="重新加载配置", command=self._reload_config)
-        self.menu.add_command(label="清除今日走势缓存", command=self._clear_cache)
-        self.menu.add_command(label="重置窗口位置", command=self._reset_position)
-        self.menu.add_separator()
-        self.menu.add_command(label="退出 GoldTicker", command=self.quit)
-
-        self.menu.tk_popup(event.x_root, event.y_root)
+    def _open_github(self):
+        import webbrowser
+        webbrowser.open("https://github.com/realsuperj/gold-ticker")
 
     # ---------------- 托盘集成与双入口防幽灵 ----------------
 
     def _init_tray(self) -> None:
         """初始化 pystray 任务栏动态宽托盘。"""
         if pystray is None:
+            self.config["showMenuBarIcon"] = False
+            self.config["showOnDesktop"] = True
+            self.root.deiconify()
             return
 
-        if not self.config.get("showMenuBar", True):
+        if not self.config.get("showMenuBarIcon", True):
             return
 
         def _setup_tray():
@@ -502,39 +510,11 @@ class GoldTickerWindowsApp:
             img = create_tray_image(self.current_quote, self.config)
             tip = build_tray_tooltip(self.current_quote, self.config)
 
-            def get_tray_menu():
-                cur_desktop = bool(self.config.get("showOnDesktop", True))
-                cur_tray = bool(self.config.get("showMenuBar", True))
-
-                can_disable_tr = can_toggle_entry(cur_desktop, cur_tray, "tray")
-                can_disable_dk = can_toggle_entry(cur_desktop, cur_tray, "desktop")
-
-                items = [
-                    pystray.MenuItem(
-                        "显示到桌面" + (" (唯一入口锁定)" if not can_disable_dk else ""),
-                        self._toggle_desktop,
-                        checked=lambda item: self.config.get("showOnDesktop", True),
-                        enabled=can_disable_dk or not cur_desktop,
-                    ),
-                    pystray.MenuItem(
-                        "显示到菜单栏/托盘" + (" (唯一入口锁定)" if not can_disable_tr else ""),
-                        self._toggle_tray_entry,
-                        checked=lambda item: self.config.get("showMenuBar", True),
-                        enabled=can_disable_tr or not cur_tray,
-                    ),
-                    pystray.Menu.SEPARATOR,
-                    pystray.MenuItem("打开配置目录", self._open_config_dir),
-                    pystray.MenuItem("重置卡片位置", self._reset_position),
-                    pystray.Menu.SEPARATOR,
-                    pystray.MenuItem("退出应用", lambda: self.root.after(0, self.quit)),
-                ]
-                return pystray.Menu(*items)
-
             self.tray_icon = pystray.Icon(
                 "GoldTicker",
                 icon=img,
                 title=tip,
-                menu=get_tray_menu(),
+                menu=self._build_tray_menu(),
             )
             try:
                 self.tray_icon.run()
@@ -553,6 +533,8 @@ class GoldTickerWindowsApp:
             new_tip = build_tray_tooltip(self.current_quote, self.config)
             self.tray_icon.icon = new_img
             self.tray_icon.title = new_tip
+            self.tray_icon.menu = self._build_tray_menu()
+            self.tray_icon.update_menu()
         except Exception:
             pass
 
@@ -560,12 +542,11 @@ class GoldTickerWindowsApp:
 
     def _toggle_desktop(self) -> None:
         cur_desktop = bool(self.config.get("showOnDesktop", True))
-        cur_tray = bool(self.config.get("showMenuBar", True))
+        cur_tray = bool(self.config.get("showMenuBarIcon", True))
 
         if not can_toggle_entry(cur_desktop, cur_tray, "desktop"):
             messagebox.showinfo(
-                "操作受限",
-                "至少需要保留一个可见入口（桌面悬浮窗或状态栏托盘），无法关闭！",
+                "GoldTicker", self._text("locked"),
             )
             return
 
@@ -582,17 +563,16 @@ class GoldTickerWindowsApp:
 
     def _toggle_tray_entry(self) -> None:
         cur_desktop = bool(self.config.get("showOnDesktop", True))
-        cur_tray = bool(self.config.get("showMenuBar", True))
+        cur_tray = bool(self.config.get("showMenuBarIcon", True))
 
         if not can_toggle_entry(cur_desktop, cur_tray, "tray"):
             messagebox.showinfo(
-                "操作受限",
-                "至少需要保留一个可见入口（桌面悬浮窗或状态栏托盘），无法关闭！",
+                "GoldTicker", self._text("locked"),
             )
             return
 
         new_val = not cur_tray
-        self.config["showMenuBar"] = new_val
+        self.config["showMenuBarIcon"] = new_val
         save_config(self.config)
 
         if not new_val and self.tray_icon:
@@ -609,7 +589,7 @@ class GoldTickerWindowsApp:
         self.config["showChart"] = val
         save_config(self.config)
         if val:
-            self.chart_frame.pack(fill=tk.X)
+            self.chart_frame.pack(fill=tk.X, before=self.footer_frame)
             self._render_chart()
         else:
             self.chart_frame.pack_forget()
@@ -620,7 +600,7 @@ class GoldTickerWindowsApp:
         self.config["showDetails"] = val
         save_config(self.config)
         if val:
-            self.details_frame.pack(fill=tk.X)
+            self.details_frame.pack(fill=tk.X, before=self.chart_frame if self.config["showChart"] else self.footer_frame)
         else:
             self.details_frame.pack_forget()
         self._adjust_card_height()
@@ -634,7 +614,10 @@ class GoldTickerWindowsApp:
     def _set_symbol(self, symbol: str) -> None:
         self.config["symbol"] = symbol
         save_config(self.config)
+        self.current_quote = None
         self._load_cached_points()
+        self._update_ui_with_quote()
+        self._update_tray()
         self._trigger_immediate_fetch()
 
     def _set_change_basis(self, basis: str) -> None:
@@ -652,7 +635,7 @@ class GoldTickerWindowsApp:
     def _set_refresh_interval(self, sec: int) -> None:
         if sec < MIN_REFRESH_SECONDS:
             sec = MIN_REFRESH_SECONDS
-        self.config["refreshInterval"] = sec
+        self.config["refreshSeconds"] = sec
         save_config(self.config)
 
     def _set_width(self, width: int) -> None:
@@ -704,16 +687,24 @@ class GoldTickerWindowsApp:
     def _load_cached_points(self) -> None:
         symbol = self.config.get("symbol", SYMBOL_ZS_JCJ)
         pts = load_today_points(symbol)
-        self.intraday_points = [(p.timestamp, p.price) for p in pts]
+        self.intraday_points = [(p["ts"], p["p"]) for p in pts]
+
+    def _record_all_quotes(self, quotes) -> None:
+        for s, q in quotes.items():
+            if q and not q.error and q.price > 0:
+                freeze_day_basis(s, q.prev_close, q.open_price)
+                record_price_point(q.price, s)
 
     def _start_fetch_loop(self) -> None:
         def loop():
             while self.is_running:
                 symbol = self.config.get("symbol", SYMBOL_ZS_JCJ)
                 try:
-                    quote = self.pricing_engine.fetch_quote(symbol)
-                    if quote and not quote.error and quote.price > 0:
-                        record_price_point(quote.symbol, quote.price, time.time())
+                    quotes = self.pricing_engine.sample_all_quotes()
+                    self._record_all_quotes(quotes)
+                    quote = quotes.get(symbol) or self.pricing_engine.get_cached_quote(symbol)
+                    if quote and quote.price > 0:
+                        quote = apply_frozen_basis(quote)
                     self.msg_queue.put(quote)
                 except Exception as e:
                     self.msg_queue.put(QuoteData(
@@ -734,7 +725,7 @@ class GoldTickerWindowsApp:
                 # 间隔轮询 (严守 ≥10s 底线)
                 interval = max(
                     MIN_REFRESH_SECONDS,
-                    int(self.config.get("refreshInterval", 30)),
+                    int(self.config.get("refreshSeconds", 30)),
                 )
                 for _ in range(interval * 2):
                     if not self.is_running:
@@ -748,7 +739,11 @@ class GoldTickerWindowsApp:
         def fetch_now():
             symbol = self.config.get("symbol", SYMBOL_ZS_JCJ)
             try:
-                q = self.pricing_engine.fetch_quote(symbol)
+                quotes = self.pricing_engine.sample_all_quotes()
+                self._record_all_quotes(quotes)
+                q = quotes.get(symbol) or self.pricing_engine.get_cached_quote(symbol)
+                if q and q.price > 0:
+                    q = apply_frozen_basis(q)
                 self.msg_queue.put(q)
             except Exception:
                 pass
@@ -759,8 +754,12 @@ class GoldTickerWindowsApp:
         try:
             while not self.msg_queue.empty():
                 quote = self.msg_queue.get_nowait()
-                if quote:
+                if callable(quote):
+                    quote()
+                    continue
+                if quote and quote.symbol == self.config["symbol"]:
                     self.current_quote = quote
+                    self._load_cached_points()
                     self._update_ui_with_quote()
                     self._update_tray()
         except Exception:
@@ -775,20 +774,22 @@ class GoldTickerWindowsApp:
         symbol = self.config.get("symbol", SYMBOL_ZS_JCJ)
 
         # 徽标（国内模式“金”，国际模式“Au”）
-        prefix = "Au" if symbol == SYMBOL_XAU_USD else "金"
+        prefix = ticker_prefix(self.config)
         self.lbl_prefix.config(text=prefix)
 
         if not is_quote_valid(quote):
-            err_text = quote.error if (quote and quote.error) else "获取中…"
+            err_text = self._text("fetch_error" if quote and quote.error else "refreshing")
             self.lbl_price.config(text="--.--", fg=TEXT_MUTED)
             self.lbl_delta.config(text="--", fg=TEXT_MUTED)
             self.lbl_footer.config(text=err_text)
+            self.lbl_details.config(text="--")
+            self._render_chart()
             return
 
         # 计算涨跌
-        change_basis = self.config.get("changeBasis", "prev_close")
+        change_basis = self.config.get("changeBasis", "prevClose")
         diff, pct = calculate_quote_delta(quote, change_basis)
-        color = get_quote_color(diff, self.config.get("colorMode", "red-up"))
+        color = get_quote_color(diff, self.config.get("colorMode", "cny"))
 
         # 更新大字价格与涨跌幅
         self.lbl_price.config(text=f"{quote.price:.2f}", fg=TEXT_MAIN)
@@ -796,24 +797,16 @@ class GoldTickerWindowsApp:
         self.lbl_delta.config(text=f"{sign}{diff:.2f} ({pct:+.2f}%)", fg=color)
 
         # 更新明细 (今开 / 昨收 / 最高 / 最低)
-        basis_name = "昨收" if change_basis == "prev_close" else "今开"
-        self.lbl_details.config(
-            text=f"今开: {quote.open_price:.2f}   {basis_name}: {quote.prev_close:.2f}\n"
-                 f"最高: {quote.high:.2f}   最低: {quote.low:.2f}"
-        )
-
-        # 记录到分时并重绘折线
-        self.intraday_points.append((time.time(), quote.price))
-        if len(self.intraday_points) > 2000:
-            self.intraday_points = self.intraday_points[-2000:]
+        basis_name = self._text("prev_close" if change_basis == "prevClose" else "open_price")
+        base_price = quote.prev_close if change_basis == "prevClose" else quote.open_price
+        self.lbl_details.config(text=f"{self._text('open_price')}: {quote.open_price:.2f}   {basis_name}: {base_price:.2f}\n"
+                                     f"{self._text('high')}: {quote.high:.2f}   {self._text('low')}: {quote.low:.2f}")
         self._render_chart()
-
-        # 底部状态行
-        meta = SYMBOL_META.get(symbol, {})
-        sym_name = meta.get("name_cn", symbol)
-        self.lbl_footer.config(
-            text=f"{sym_name} · {quote.time_str} · {quote.source_name}"
-        )
+        lang = resolve_language(self.config.get("language", "auto"))
+        meta = SYMBOL_META[symbol]
+        sym_name = meta["name_cn" if lang == "zh" else "name_en"]
+        estimate = " " + self._text("estTag") if quote.is_estimated else ""
+        self.lbl_footer.config(text=f"{sym_name}{estimate} · {quote.time_str}")
 
     def quit(self) -> None:
         """安全退出 GoldTicker。"""
