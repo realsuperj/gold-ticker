@@ -44,10 +44,23 @@ DEFAULTS = {
     "fontScale": 1.0,
     "showMenuBarIcon": True,
     "changeBasis": "prevClose",
+    "colorMode": "cny",
+    "language": "auto",
     "dataSource": "auto",
     "windowX": -1,
     "windowY": -1,
 }
+
+
+def get_lang(cfg):
+    """解析当前语言设置：'zh' 或 'en'"""
+    l = str((cfg or {}).get("language", "auto")).lower()
+    if l in ("zh", "cn", "zh_cn"):
+        return "zh"
+    if l in ("en", "english"):
+        return "en"
+    env_l = (os.environ.get("LANG", "") + os.environ.get("LC_ALL", "")).lower()
+    return "zh" if "zh" in env_l else "en"
 
 
 # ------------------------------------------------------------------ 配置
@@ -630,10 +643,25 @@ def draw_card(view):
         tone = rgba(DOWN_COLOR) if up else rgba(UP_COLOR)
     dim2 = gray(1.0, 0.32)
     top = 9
+    lang = get_lang(cfg)
+    is_en = (lang == "en")
 
     # 标的名称与计量单位（遵循需求规范：国际金为 美元/盎司，国内现货及银行积存金为 元/克）
-    unit = q.get("unit") or ("美元/盎司" if normalize_symbol(q.get("source")) == "xau_usd" else "元/克")
-    draw_text(view, "%s · %s" % (q.get("sourceName") or "上金所 Au99.99", unit),
+    sym_id = normalize_symbol(q.get("source"))
+    if is_en:
+        en_names = {
+            "au9999": ("SGE · Au99.99", "CNY/g"),
+            "zs_jcj": ("CZBank · Gold", "CNY/g"),
+            "icbc_jcj": ("ICBC · Gold (Est. Spread)", "CNY/g"),
+            "ccb_jcj": ("CCB · Gold (Est. Spread)", "CNY/g"),
+            "xau_usd": ("Spot Gold · XAU/USD", "USD/oz"),
+        }
+        disp_name, disp_unit = en_names.get(sym_id, (q.get("sourceName") or "Gold", "USD/oz" if sym_id == "xau_usd" else "CNY/g"))
+    else:
+        disp_name = q.get("sourceName") or "上金所 Au99.99"
+        disp_unit = q.get("unit") or ("美元/盎司" if sym_id == "xau_usd" else "元/克")
+
+    draw_text(view, "%s · %s" % (disp_name, disp_unit),
               pad, top, W - pad * 2, 12, 9.5, gray(1.0, 0.55))
     top += 14
 
@@ -652,9 +680,12 @@ def draw_card(view):
 
     if cfg and cfg["showDetails"]:
         colw = (W - pad * 2) / 3.0
-        draw_text(view, "高 %.2f" % q.get("high", 0), pad, top, colw, 12, 8.4, dim2, mono=True)
-        draw_text(view, "低 %.2f" % q.get("low", 0), pad + colw, top, colw, 12, 8.4, dim2, mono=True)
-        draw_text(view, "%s %.2f" % (basis_label, basis), pad + colw * 2, top, colw, 12,
+        h_tag = "High" if is_en else "高"
+        l_tag = "Low" if is_en else "低"
+        b_tag = ("Open" if basis_label == "今开" else "Prev") if is_en else basis_label
+        draw_text(view, "%s %.2f" % (h_tag, q.get("high", 0)), pad, top, colw, 12, 8.4, dim2, mono=True)
+        draw_text(view, "%s %.2f" % (l_tag, q.get("low", 0)), pad + colw, top, colw, 12, 8.4, dim2, mono=True)
+        draw_text(view, "%s %.2f" % (b_tag, basis), pad + colw * 2, top, colw, 12,
                   8.4, dim2, mono=True, align=1)
         top += 16
 
@@ -667,7 +698,8 @@ def draw_card(view):
             draw_text(view, rows[-1]["t"],
                       W - pad - 80, top, 80, 11, 8.5, dim2, mono=True, align=1)
         else:
-            draw_text(view, "今日走势累积中", pad, top,
+            accum_text = "Accumulating trend..." if is_en else "今日走势累积中"
+            draw_text(view, accum_text, pad, top,
                       W - pad * 2, 11, 8.5, dim2, align=2)
 
 
@@ -948,72 +980,112 @@ class App(objc.lookUpClass("NSObject")):
 
     def fill_menu(self, m):
         m.removeAllItems()
+        lang = get_lang(self.cfg)
+        is_en = (lang == "en")
+
         # 1. 核心视图与窗口入口（双入口互锁防幽灵置灰）
         can_disable_desk = bool(self.cfg.get("showMenuBarIcon", True))
         can_disable_bar = bool(self.cfg.get("showOnDesktop", True))
-        self.add_toggle(m, "显示到桌面", "showOnDesktop", "toggleDesktop:",
+        self.add_toggle(m, "Show on Desktop" if is_en else "显示到桌面", "showOnDesktop", "toggleDesktop:",
                         enabled=can_disable_desk or not self.cfg.get("showOnDesktop", True))
-        self.add_toggle(m, "显示到菜单栏/托盘", "showMenuBarIcon", "toggleMenuBar:",
+        self.add_toggle(m, "Show on Menu Bar / Tray" if is_en else "显示到菜单栏/托盘", "showMenuBarIcon", "toggleMenuBar:",
                         enabled=can_disable_bar or not self.cfg.get("showMenuBarIcon", True))
-        self.add_toggle(m, "窗口置顶", "alwaysOnTop", "toggleTop:")
+        self.add_toggle(m, "Always on Top" if is_en else "窗口置顶", "alwaysOnTop", "toggleTop:")
         m.addItem_(NSMenuItem.separatorItem())
 
         # 2. 视觉组件开关
-        self.add_toggle(m, "显示走势图", "showChart", "toggleChart:")
-        self.add_toggle(m, "显示 高/低/基准价", "showDetails", "toggleDetails:")
+        self.add_toggle(m, "Show Trend Chart" if is_en else "显示走势图", "showChart", "toggleChart:")
+        self.add_toggle(m, "Show High/Low/Base Details" if is_en else "显示 高/低/基准价", "showDetails", "toggleDetails:")
         m.addItem_(NSMenuItem.separatorItem())
 
         # 3. 行情标的子菜单 (约定的 5 大核心标的：上金所、浙商、工行、建行、国际黄金)
         src = NSMenu.alloc().init()
         cur_src = normalize_symbol(self.cfg.get("dataSource"))
         for idx, (sid, name, vendor, _unit, _fn) in enumerate(SYMBOLS):
-            it = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("%s（%s）" % (name, vendor), "setSource:", "")
+            if is_en:
+                en_names = {
+                    "au9999": "SGE Au99.99 (Spot)",
+                    "zs_jcj": "CZBank Gold Accumulation",
+                    "icbc_jcj": "ICBC Gold (Est. Spread)",
+                    "ccb_jcj": "CCB Gold (Est. Spread)",
+                    "xau_usd": "Spot Gold (XAU/USD)",
+                }
+                title = en_names.get(sid, name)
+            else:
+                title = "%s（%s）" % (name, vendor)
+            it = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, "setSource:", "")
             it.setTag_(idx)
             it.setState_(NSOnState if cur_src == sid else NSOffState)
             it.setTarget_(self)
             src.addItem_(it)
-        src_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("行情标的", "", "")
+        src_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Select Target" if is_en else "行情标的", "", "")
         src_root.setSubmenu_(src)
         m.addItem_(src_root)
 
         # 4. 涨跌对比基准
         basis = NSMenu.alloc().init()
         cur_open = self.cfg.get("changeBasis") == "open"
-        for tag, title in ((0, "昨收（上一交易日收盘）"),
-                           (1, "今开（今日开盘价）")):
+        basis_items = (
+            (0, "Prev Close (Previous Trading Day)" if is_en else "昨收（上一交易日收盘）"),
+            (1, "Open Price (Today's Opening)" if is_en else "今开（今日开盘价）")
+        )
+        for tag, title in basis_items:
             it = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, "setBasis:", "")
             it.setTag_(tag)
             it.setState_(NSOnState if (1 if cur_open else 0) == tag else NSOffState)
             it.setTarget_(self)
             basis.addItem_(it)
-        basis_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("涨跌基准", "", "")
+        basis_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Change Basis" if is_en else "涨跌基准", "", "")
         basis_root.setSubmenu_(basis)
         m.addItem_(basis_root)
 
         # 5. 涨跌配色子菜单 (红涨绿跌 / 绿涨红跌)
         col_menu = NSMenu.alloc().init()
         cur_col = self.cfg.get("colorMode", "cny")
-        for tag, (cid, ctitle) in enumerate((("cny", "红涨绿跌 (国内习惯)"), ("intl", "绿涨红跌 (国际习惯)"))):
+        col_items = (
+            ("cny", "Red Up / Green Down (CN Default)" if is_en else "红涨绿跌 (国内习惯 - 默认)"),
+            ("intl", "Green Up / Red Down (International)" if is_en else "绿涨红跌 (国际习惯)")
+        )
+        for tag, (cid, ctitle) in enumerate(col_items):
             it = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(ctitle, "setColorMode:", "")
             it.setTag_(tag)
             it.setState_(NSOnState if cur_col == cid else NSOffState)
             it.setTarget_(self)
             col_menu.addItem_(it)
-        col_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("涨跌配色", "", "")
+        col_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Color Scheme" if is_en else "色彩偏好", "", "")
         col_root.setSubmenu_(col_menu)
         m.addItem_(col_root)
+
+        # 语言切换 (Language)
+        lang_menu = NSMenu.alloc().init()
+        cur_lang_cfg = self.cfg.get("language", "auto")
+        lang_items = (
+            ("auto", "跟随系统 (Auto)" if not is_en else "Auto (System Default)"),
+            ("zh", "简体中文 (Chinese)"),
+            ("en", "English")
+        )
+        for tag, (lid, ltitle) in enumerate(lang_items):
+            it = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(ltitle, "setLanguage:", "")
+            it.setTag_(tag)
+            it.setState_(NSOnState if cur_lang_cfg == lid else NSOffState)
+            it.setTarget_(self)
+            lang_menu.addItem_(it)
+        lang_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Language (语言)", "", "")
+        lang_root.setSubmenu_(lang_menu)
+        m.addItem_(lang_root)
 
         m.addItem_(NSMenuItem.separatorItem())
 
         # 6. 刷新频率 (>= 10秒)
         rate = NSMenu.alloc().init()
         for sec in (10, 15, 30, 60, 300):
-            it = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("%d 秒" % sec, "setRate:", "")
+            title = ("%d Seconds" if is_en else "%d 秒") % sec
+            it = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, "setRate:", "")
             it.setTag_(sec)
             it.setState_(NSOnState if int(self.cfg["refreshSeconds"]) == sec else NSOffState)
             it.setTarget_(self)
             rate.addItem_(it)
-        rate_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("刷新频率", "", "")
+        rate_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Refresh Interval" if is_en else "刷新频率", "", "")
         rate_root.setSubmenu_(rate)
         m.addItem_(rate_root)
 
@@ -1025,7 +1097,7 @@ class App(objc.lookUpClass("NSObject")):
             it.setState_(NSOnState if int(self.cfg["width"]) == wdt else NSOffState)
             it.setTarget_(self)
             size.addItem_(it)
-        size_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("卡片宽度", "", "")
+        size_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Card Width" if is_en else "卡片宽度", "", "")
         size_root.setSubmenu_(size)
         m.addItem_(size_root)
 
@@ -1036,25 +1108,26 @@ class App(objc.lookUpClass("NSObject")):
             it.setState_(NSOnState if abs(self.cfg["opacity"] * 100 - pct) < 1 else NSOffState)
             it.setTarget_(self)
             opac.addItem_(it)
-        opac_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("窗口透明度", "", "")
+        opac_root = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Card Opacity" if is_en else "窗口透明度", "", "")
         opac_root.setSubmenu_(opac)
         m.addItem_(opac_root)
 
         m.addItem_(NSMenuItem.separatorItem())
-        for title, sel in (("重置位置（右上角）", "resetPosition:"),
-                           ("打开配置文件夹", "openConfig:"),
-                           ("重新加载配置", "reloadConfig:")):
+        maint_items = (
+            ("Reset Position (Top Right)" if is_en else "重置位置（右上角）", "resetPosition:"),
+            ("Open Config Directory" if is_en else "打开配置文件夹", "openConfig:"),
+            ("Reload Configuration" if is_en else "重新加载配置", "reloadConfig:")
+        )
+        for title, sel in maint_items:
             it = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, sel, "")
             it.setTarget_(self)
             m.addItem_(it)
         m.addItem_(NSMenuItem.separatorItem())
-        about_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("关于 GoldTicker...", "showAbout:", "")
+        about_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("About GoldTicker..." if is_en else "关于 GoldTicker...", "showAbout:", "")
         about_item.setTarget_(self)
         m.addItem_(about_item)
-        quit_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("退出", "quitApp:", "q")
+        quit_item = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Quit GoldTicker" if is_en else "退出", "quitApp:", "q")
         quit_item.setTarget_(self)
-        m.addItem_(quit_item)
-        return m
         m.addItem_(quit_item)
         return m
 
@@ -1081,6 +1154,16 @@ class App(objc.lookUpClass("NSObject")):
             self.cfg["colorMode"] = modes[tag]
             save_cfg(self.cfg)
             self.view.setNeedsDisplay_(True)
+            self.update_status_title()
+
+    def setLanguage_(self, sender):
+        langs = ["auto", "zh", "en"]
+        tag = int(sender.tag())
+        if 0 <= tag < len(langs):
+            self.cfg["language"] = langs[tag]
+            save_cfg(self.cfg)
+            if self.view is not None:
+                self.view.setNeedsDisplay_(True)
             self.update_status_title()
 
     def toggleChart_(self, sender):
