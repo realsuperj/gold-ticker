@@ -29,7 +29,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          # macos-14 已不可用（报 macos-14-arm64-us-default not supported）；用 macos-latest（当前为 arm64）
+          - os: macos-latest
             name: macos-arm64
           - os: windows-latest
             name: windows-x64
