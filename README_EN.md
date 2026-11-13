@@ -20,11 +20,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/preview-zs-en.png" width="380" alt="CZBank Gold Accumulation (macOS Native Card)" />
-  <img src="docs/preview-intl-en.png" width="380" alt="Spot Gold XAU/USD (macOS Native Card)" />
+  <img src="docs/preview-zs-en.png" width="380" alt="CZBank Gold Accumulation live card (macOS)" />
+  <img src="docs/preview-intl-en.png" width="380" alt="Spot Gold XAU/USD live card (macOS)" />
 </p>
 <p align="center">
-  <sub>CZBank Gold (CNY/g) and Spot Gold (USD/oz). Illustrative data rendered by the production macOS card; these are not live market screenshots.</sub>
+  <sub>CZBank Gold (CNY/g) and Spot Gold (USD/oz). Production macOS card screenshots with live quotes and today's real samples.</sub>
 </p>
 
 </div>
@@ -62,14 +62,14 @@ GoldTicker is committed to transparent financial data processing. The quote mode
 
 ### Method 1: Download Release Binaries (Recommended)
 Visit the [Releases](https://github.com/realsuperj/gold-ticker/releases) page to download pre-built packages:
-- **macOS**: Download `GoldTicker-macOS-<arch>.dmg`, double click and drag to `Applications`.
+- **macOS**: Download `GoldTicker-macOS-Universal2.dmg` (Intel / Apple Silicon), double click and drag to `Applications`.
 - **Windows**: Download standalone `GoldTicker.exe` (or `GoldTicker-Windows-x64.zip`), double click to run directly without dependencies.
 
 ### Method 2: Run from Source
 
 Both platforms start with `python goldticker.py`; absolute paths work from any directory.
 
-Local builds and CI both run `python tools/build.py` using `GoldTicker.spec`. Packages include Python and runtime dependencies. Mac artifacts identify the actual architecture (arm64 or x86_64), not Universal2. `python goldticker.py --smoke-test` runs an offline native UI smoke check with temporary configuration.
+Local builds and CI both run `python tools/build.py` using `GoldTicker.spec` (`target_arch=universal2`), producing `GoldTicker-macOS-Universal2.dmg`. `python goldticker.py --smoke-test` runs an offline native UI smoke check with temporary configuration.
 
 #### macOS Local Install & Launch
 ```bash

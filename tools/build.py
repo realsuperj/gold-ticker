@@ -34,8 +34,7 @@ def main():
     if mac:
         app = dist / "GoldTicker.app"
         subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app)], check=True)
-        arch = platform.machine()
-        artifact = dist / f"GoldTicker-macOS-{arch}.dmg"
+        artifact = dist / "GoldTicker-macOS-Universal2.dmg"
         subprocess.run(["hdiutil", "create", "-volname", "GoldTicker", "-srcfolder", str(app), "-ov", "-format", "UDZO", str(artifact)], check=True)
     else:
         arch = "x64" if platform.machine().lower() in ("amd64", "x86_64") else platform.machine().lower()

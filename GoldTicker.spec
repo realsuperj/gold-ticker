@@ -12,8 +12,9 @@ a = Analysis([str(root / "goldticker.py")], pathex=[str(root)],
     noarchive=False)
 pyz = PYZ(a.pure)
 if mac:
+    # universal2：单包同时含 arm64 + x86_64，满足 Intel / Apple Silicon
     exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="GoldTicker", console=False,
-              icon=str(root / "build/AppIcon.icns"), target_arch=None)
+              icon=str(root / "build/AppIcon.icns"), target_arch="universal2")
     coll = COLLECT(exe, a.binaries, a.datas, name="GoldTicker")
     app = BUNDLE(coll, name="GoldTicker.app", icon=str(root / "build/AppIcon.icns"),
         bundle_identifier="com.superj.goldticker", version=VERSION,

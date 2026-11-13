@@ -20,11 +20,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/preview-zs.png" width="380" alt="浙商银行积存金示例走势 (macOS 原生卡片)" />
-  <img src="docs/preview-intl.png" width="380" alt="国际现货黄金 XAU/USD (macOS 原生卡片)" />
+  <img src="docs/preview-zs.png" width="380" alt="浙商银行积存金实时卡片 (macOS)" />
+  <img src="docs/preview-intl.png" width="380" alt="国际现货黄金 XAU/USD 实时卡片 (macOS)" />
 </p>
 <p align="center">
-  <sub>浙商银行积存金（元/克）与国际现货黄金（美元/盎司）。使用正式 macOS 卡片渲染的示例数据，非实时行情截图。</sub>
+  <sub>浙商银行积存金（元/克）与国际现货黄金（美元/盎司）。正式 macOS 卡片 + 当日真实采样截图。</sub>
 </p>
 
 </div>
@@ -62,14 +62,14 @@ GoldTicker 严格保障金融数据的透明度与准确性，当前收录的 5 
 
 ### 方式一：直接下载发布包 (推荐)
 前往项目的 [Releases](https://github.com/realsuperj/gold-ticker/releases) 页面下载对应系统的最新发布包：
-- **macOS**：下载 `GoldTicker-macOS-<arch>.dmg`，双击拖入 `Applications` 即可运行；
+- **macOS**：下载 `GoldTicker-macOS-Universal2.dmg`（Intel / Apple Silicon），双击拖入 `Applications` 即可运行；
 - **Windows**：直接下载单个免安装绿色版 `GoldTicker.exe`（或 `GoldTicker-Windows-x64.zip`），双击即可运行，无任何外部依赖。
 
 ### 方式二：源码运行与本地安装
 
 源码统一使用 `python goldticker.py`（macOS 和 Windows），可从任意工作目录使用绝对路径启动。
 
-本地和 CI 均使用 `python tools/build.py` 与 `GoldTicker.spec`，产物自带 Python 及运行依赖。Mac 文件名标注实际架构（arm64 或 x86_64），不声明 Universal2。`python goldticker.py --smoke-test` 在临时配置目录运行离线原生界面冒烟。
+本地和 CI 均使用 `python tools/build.py` 与 `GoldTicker.spec`（`target_arch=universal2`），产物为 `GoldTicker-macOS-Universal2.dmg`。`python goldticker.py --smoke-test` 在临时配置目录运行离线原生界面冒烟。
 
 #### macOS 本地安装与启动
 ```bash
