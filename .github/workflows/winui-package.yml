@@ -1,0 +1,51 @@
+name: WinUI Package
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'winui/**'
+      - 'core/**'
+      - 'core_worker.py'
+      - 'GoldTicker.Core.spec'
+      - 'tools/package_winui.ps1'
+      - '.github/workflows/winui-package.yml'
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Package WinUI + Core
+        shell: pwsh
+        run: .\tools\package_winui.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-winui-x64
+          path: |
+            dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip
+            dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip.sha256
+      # Drop branch so we can fetch the zip over SSH without gh auth
+      - name: Publish drop branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          DROP_DIR=$(mktemp -d)
+          cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip "$DROP_DIR/"
+          cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip.sha256 "$DROP_DIR/"
+          cd "$DROP_DIR"
+          git init
+          git checkout -b winui-drop
+          git add .
+          git commit -m "winui package drop"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push -f origin winui-drop

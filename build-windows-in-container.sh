@@ -29,6 +29,8 @@ if [ ! -f /wine/drive_c/Python/python.exe ]; then
 fi
 PY='C:\Python\python.exe'
 cd /work
+# Wine/Windows pip defaults to cp1252; requirements.txt has UTF-8 comments.
+export PYTHONUTF8=1 PYTHONIOENCODING=utf-8
 "$WINE" "$PY" -m pip install --disable-pip-version-check -r 'Z:\work\requirements.txt' 'pyinstaller>=6.11,<7'
 "$WINE" "$PY" 'Z:\work\tools\build.py'
 test -s /work/dist/windows/GoldTicker.exe
