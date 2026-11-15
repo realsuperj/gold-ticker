@@ -22,7 +22,16 @@ jobs:
           python-version: '3.11'
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          # Pin 8.x — runners may also have SDK 10, which breaks WindowsAppSDK PriGen tasks.
+          dotnet-version: '8.0.404'
+      - name: Use .NET 8 SDK
+        shell: pwsh
+        run: |
+          dotnet --list-sdks
+          dotnet --version
+          # Prefer the 8.x SDK even if a newer one is installed.
+          New-Item -ItemType Directory -Force -Path winui\GoldTicker.WinUI | Out-Null
+
       - name: Package WinUI + Core
         id: package
         shell: pwsh
