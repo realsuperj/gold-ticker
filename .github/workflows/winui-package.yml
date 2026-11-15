@@ -27,8 +27,14 @@ jobs:
         id: package
         shell: pwsh
         run: |
-          .\tools\package_winui.ps1 *>&1 | Tee-Object -FilePath package-winui.log
-          if ($LASTEXITCODE -ne 0) { Get-Content package-winui.log -Tail 80; exit $LASTEXITCODE }
+          # Avoid piping so $ErrorActionPreference / throw keep a real exit code.
+          .\tools\package_winui.ps1 *> package-winui.log
+          if (-not $?) {
+            Get-Content package-winui.log -Tail 120
+            exit 1
+          }
+          Get-Content package-winui.log -Tail 40
+
       - name: Upload package log
         if: always()
         uses: actions/upload-artifact@v4
@@ -48,19 +54,20 @@ jobs:
         if: always()
         shell: bash
         run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set -euxo pipefail
           DROP_DIR=$(mktemp -d)
+          mkdir -p "$DROP_DIR"
           if [ -f dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip ]; then
             cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip "$DROP_DIR/"
             cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip.sha256 "$DROP_DIR/" || true
           fi
           if [ -f package-winui.log ]; then cp package-winui.log "$DROP_DIR/"; fi
+          ls -la "$DROP_DIR"
+          test -n "$(ls -A "$DROP_DIR")"
           cd "$DROP_DIR"
           git init
-          git checkout -b winui-drop
-          git add .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
           git commit -m "winui package drop"
-          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-          git push -f origin winui-drop
+          git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/winui-drop"
