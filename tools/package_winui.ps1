@@ -23,12 +23,17 @@ $Proj = Join-Path $Root "winui\GoldTicker.WinUI\GoldTicker.WinUI.csproj"
 $Publish = Join-Path $Root "dist\winui-publish"
 Remove-Item -Recurse -Force $Publish -ErrorAction SilentlyContinue
 # Do not pass Platform=x64 together with -r win-x64 (RID publish conflict on CI).
-dotnet restore $Proj
-dotnet publish $Proj -c Release -r win-x64 --self-contained true -o $Publish `
-  -p:WindowsPackageType=None `
-  -p:WindowsAppSDKSelfContained=true `
-  -p:PublishSingleFile=false `
-  -p:IncludeNativeLibrariesForSelfExtract=true
+Push-Location (Split-Path $Proj)
+try {
+  dotnet --info
+  dotnet restore
+  dotnet publish -c Release -r win-x64 --self-contained true -o $Publish `
+    -p:WindowsPackageType=None `
+    -p:WindowsAppSDKSelfContained=true `
+    -p:PublishSingleFile=false
+} finally {
+  Pop-Location
+}
 if (-not (Test-Path (Join-Path $Publish "GoldTicker.WinUI.exe"))) {
   Get-ChildItem $Publish -ErrorAction SilentlyContinue | Format-Table Name, Length
   throw "GoldTicker.WinUI.exe missing after publish"
