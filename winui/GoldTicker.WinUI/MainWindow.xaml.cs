@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.Graphics;
+using ShapePath = Microsoft.UI.Xaml.Shapes.Path;
 using Windows.System;
 using Windows.UI;
 using WinRT.Interop;
@@ -344,7 +345,7 @@ public sealed partial class MainWindow : Window
         for (var i = 1; i < _samples.Count; i++)
             fig.Segments.Add(new LineSegment { Point = new Windows.Foundation.Point(X(i), Y(_samples[i].p)) });
         geo.Figures.Add(fig);
-        ChartCanvas.Children.Add(new Path
+        ChartCanvas.Children.Add(new ShapePath
         {
             Data = geo,
             Stroke = new SolidColorBrush(tone),
