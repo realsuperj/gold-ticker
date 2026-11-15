@@ -24,24 +24,39 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Package WinUI + Core
+        id: package
         shell: pwsh
-        run: .\tools\package_winui.ps1
+        run: |
+          .\tools\package_winui.ps1 *>&1 | Tee-Object -FilePath package-winui.log
+          if ($LASTEXITCODE -ne 0) { Get-Content package-winui.log -Tail 80; exit $LASTEXITCODE }
+      - name: Upload package log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: winui-package-log
+          path: package-winui.log
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: windows-winui-x64
           path: |
             dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip
             dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip.sha256
-      # Drop branch so we can fetch the zip over SSH without gh auth
+      # Drop branch: zip on success, log on failure (fetchable over git SSH)
       - name: Publish drop branch
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           DROP_DIR=$(mktemp -d)
-          cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip "$DROP_DIR/"
-          cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip.sha256 "$DROP_DIR/"
+          if [ -f dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip ]; then
+            cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip "$DROP_DIR/"
+            cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip.sha256 "$DROP_DIR/" || true
+          fi
+          if [ -f package-winui.log ]; then cp package-winui.log "$DROP_DIR/"; fi
           cd "$DROP_DIR"
           git init
           git checkout -b winui-drop
