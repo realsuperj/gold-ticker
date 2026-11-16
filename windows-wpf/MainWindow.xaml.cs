@@ -119,9 +119,9 @@ public partial class MainWindow : Window
         var alpha = (byte)Math.Round(Math.Max(0.60, Math.Min(1.0, _config.Opacity)) * 255.0);
         CardBorder.Background = new SolidColorBrush(Color.FromArgb(alpha, 20, 28, 41));
 
-        double emptyH = 62;
-        if (_config.ShowDetails) emptyH += 16;
-        if (_config.ShowChart) emptyH += 56;
+        double emptyH = 50;
+        if (_config.ShowDetails) emptyH += 14;
+        if (_config.ShowChart) emptyH += 46;
         EmptyPanel.MinHeight = emptyH;
 
         _timer.Interval = TimeSpan.FromSeconds(Math.Max(GoldConstants.MinRefreshSeconds, _config.RefreshSeconds));
@@ -254,7 +254,7 @@ public partial class MainWindow : Window
         var toneBrush = new SolidColorBrush(tone);
         toneBrush.Freeze();
 
-        PriceText.FontSize = _config.Width >= 200 ? 28.0 : 26.0;
+        PriceText.FontSize = _config.Width >= 196 ? 25.0 : (_config.Width >= 162 ? 23.0 : 21.0);
         PriceText.Text = q.Price.ToString("0.00", CultureInfo.InvariantCulture);
         PriceText.Foreground = toneBrush;
 
@@ -293,8 +293,8 @@ public partial class MainWindow : Window
     private void DrawChart(Color tone, double basis)
     {
         ChartCanvas.Children.Clear();
-        double w = Math.Max(120, _config.Width - 28.0);
-        double h = 44.0;
+        double w = Math.Max(108, _config.Width - 22.0);
+        double h = 36.0;
         ChartCanvas.Width = w;
         ChartCanvas.Height = h;
 

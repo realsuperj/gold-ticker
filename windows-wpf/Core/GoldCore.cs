@@ -61,7 +61,7 @@ public sealed class AppConfig
     public bool ShowChart { get; set; } = true;
     public bool ShowDetails { get; set; } = true;
     public bool AlwaysOnTop { get; set; } = true;
-    public int Width { get; set; } = 216;
+    public int Width { get; set; } = 176;
     public double Opacity { get; set; } = 0.88;
     public int RefreshSeconds { get; set; } = 10;
     public string ColorMode { get; set; } = "cny";
@@ -73,7 +73,7 @@ public sealed class AppConfig
 
 public static class GoldConstants
 {
-    public const string Version = "1.0.6";
+    public const string Version = "1.0.7";
     public const string Copyright = "Copyright © 2026 realsuperj. MIT License.";
     public const string GithubUrl = "https://github.com/realsuperj/gold-ticker";
 
@@ -88,7 +88,7 @@ public static class GoldConstants
         SymbolAu9999, SymbolZsJcj, SymbolIcbcJcj, SymbolCcbJcj, SymbolXauUsd
     };
 
-    public static readonly int[] ValidWidths = { 180, 200, 216, 240, 280 };
+    public static readonly int[] ValidWidths = { 148, 162, 176, 196, 216, 240 };
     public static readonly int[] ValidRefreshIntervals = { 10, 15, 30, 60, 300 };
     public static readonly double[] ValidOpacities = { 0.60, 0.75, 0.88, 0.95, 1.00 };
 
