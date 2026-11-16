@@ -16,16 +16,24 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](https://github.com/realsuperj/gold-ticker/releases)
 
 <p align="center">
-  Supporting <b>Shanghai Gold Exchange Au99.99</b>, <b>Spot Gold (XAU/USD)</b>, and major Chinese commercial bank accumulation gold (<b>CZBank</b>, ICBC, CCB).<br/>
-  Featuring native macOS frosted glass floating card & status bar item, alongside Windows lightweight tray ticker & desktop widget.
+  <a href="https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker-macOS-Universal2.dmg"><strong>⬇️ Download macOS DMG</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker.exe"><strong>⬇️ Download Windows EXE</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/realsuperj/gold-ticker/releases/latest">All releases</a>
 </p>
 
 <p align="center">
-  <img src="docs/preview-zs-en.png" width="380" alt="CZBank Gold Accumulation live card (macOS)" />
-  <img src="docs/preview-intl-en.png" width="380" alt="Spot Gold XAU/USD live card (macOS)" />
+  Supporting <b>Shanghai Gold Exchange Au99.99</b>, <b>Spot Gold (XAU/USD)</b>, and major Chinese commercial bank accumulation gold (<b>CZBank</b>, ICBC, CCB).<br/>
+  macOS: native frosted desktop card + menu bar. Windows: native WPF floating desktop card (no taskbar ticker strip).
+</p>
+
+<p align="center">
+  <img src="docs/preview-zs-en.png" width="320" alt="CZBank Gold live card (macOS)" />
+  <img src="docs/preview-win-zs-en.png" width="320" alt="CZBank Gold live card (Windows)" />
 </p>
 <p align="center">
-  <sub>CZBank Gold (CNY/g) and Spot Gold (USD/oz). Production macOS card screenshots with live quotes and today's real samples.</sub>
+  <sub>Left: macOS · Right: Windows (WPF). CZBank gold card visuals.</sub>
 </p>
 
 </div>
@@ -34,12 +42,12 @@
 
 ## Key Features
 
-- 🌟 **Comprehensive Quotes**: Aggregates Shanghai Gold Exchange Au99.99 benchmark, international spot gold (XAU/USD native USD quote), and commercial bank gold accumulation quotes in real time.
-- 🪟 **Minimalist Native Aesthetic**: Native macOS translucent frosted glass floating card and menu bar icon; Windows dynamic tray ticker, staying unobtrusive and quiet.
-- 📈 **Dynamic Intraday Chart**: Smooth intraday curve with previous close baseline, providing an immediate sense of market fluctuations; collapsible at will.
-- 🔄 **Dual Entry Interlock**: Seamlessly switch between desktop card and menu bar/tray icon. Hide the card and keep the ticker running quietly in the menu bar.
-- 🎨 **User-Centric Color Scheme**: Color settings stay consistent across all targets. Red-Up/Green-Down (CN standard) or Green-Up/Red-Down (International standard) can be switched with one click.
-- 🌐 **Lightweight Internationalization (i18n)**: Out-of-the-box support for English and Simplified Chinese, with auto-detection of system locale and in-app menu language switcher.
+- 🌟 **Comprehensive Quotes**: Aggregates Shanghai Gold Exchange Au99.99, international spot gold (XAU/USD native USD quote), and commercial bank accumulation gold in real time.
+- 🪟 **Minimalist Native UI**: macOS uses AppKit frosted glass card + menu bar item; Windows uses .NET Framework 4.8 + WPF floating desktop card — no wide taskbar ticker, stays out of the way.
+- 📈 **Dynamic Intraday Chart**: Smooth curve with previous-close baseline; collapsible chart with adaptive card height.
+- 🔄 **Entry & Controls**: Right-click the card for the full menu on both platforms; macOS also supports desktop card + menu bar dual entry (hide either side independently).
+- 🎨 **User-Centric Colors**: Red-up/green-down (CN) or green-up/red-down (intl), applied globally across symbols.
+- 🌐 **Bilingual**: Simplified Chinese / English, follow system or pick manually.
 
 ---
 
@@ -62,9 +70,11 @@ GoldTicker is committed to transparent financial data processing. The quote mode
 ## Installation & Quick Start
 
 ### Method 1: Download Release Binaries (Recommended)
-Visit the [Releases](https://github.com/realsuperj/gold-ticker/releases) page to download pre-built packages:
-- **macOS**: Download `GoldTicker-macOS-Universal2.dmg` (Intel / Apple Silicon), double click and drag to `Applications`.
-- **Windows**: Download standalone `GoldTicker.exe` (or `GoldTicker-Windows-x64.zip`), double click to run directly without dependencies.
+
+From [Releases](https://github.com/realsuperj/gold-ticker/releases/latest):
+
+- **macOS**: [`GoldTicker-macOS-Universal2.dmg`](https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker-macOS-Universal2.dmg) (Intel / Apple Silicon) — drag to `Applications`.
+- **Windows**: [`GoldTicker.exe`](https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker.exe) standalone (or [`GoldTicker-Windows-x64.zip`](https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker-Windows-x64.zip)) — double-click, no companion DLLs.
 
 ### Method 2: Build from Source
 
@@ -87,20 +97,20 @@ Shared rules live in `shared/spec.json`. Runtimes are native — macOS: `mac-nat
 
 ## Menu Controls (Action Matrix)
 
-Right-click on the desktop floating card, or click the menu bar / system tray icon to reveal all options:
+Right-click the desktop floating card for the full menu; **macOS** can also use the menu bar icon.
 
 | Category | Option | Description |
 | :--- | :--- | :--- |
-| **View Entry** | Show on Desktop / Show on Menu Bar | Independently hide the floating card while keeping menu bar active |
-| **Chart Auxiliary** | Show Chart / Show Details | Toggle intraday trend chart and High/Low/Base values |
-| **Window Level** | Always on Top | Float above all windows or stay on desktop level |
-| **Target Selection** | Au99.99 / Spot Gold / CZBank / ICBC / CCB | Quick switch between domestic gold and international quotes |
-| **Change Basis** | Prev Close / Open Price | Switch reference baseline for delta and percentage calculations |
-| **Color Scheme** | Red Up Green Down / Green Up Red Down | User-centric color rule that applies globally across all targets |
-| **Language** | Auto / 简体中文 / English | Seamless lightweight bilingual interface switching |
-| **Refresh Interval** | 10s / 15s / 30s / 60s / 300s | Flexible polling frequency options |
-| **Customization** | Width (180~280pt) / Opacity (60%~100%) | Multi-tier visual dimensions |
-| **Maintenance** | Open Config Dir / Reset Position / Reload | Quick access to configuration file and window repositioning |
+| **View Entry** (macOS) | Show on Desktop / Show on Menu Bar | Hide either side independently; keep at least one entry |
+| **Chart Auxiliary** | Show Chart / Show Details | Toggle intraday chart and High/Low/base values |
+| **Window Level** | Always on Top | Float above other windows or stay on desktop level |
+| **Target Selection** | Au99.99 / Spot Gold / CZBank / ICBC / CCB | Switch CNY/g and USD/oz quotes |
+| **Change Basis** | Prev Close / Open Price | Baseline for delta and percent change |
+| **Color Scheme** | Red Up Green Down / Green Up Red Down | Global color rule across symbols |
+| **Language** | Auto / 简体中文 / English | Full UI bilingual switching |
+| **Refresh Interval** | 10s / 15s / 30s / 60s / 300s | Polling frequency |
+| **Customization** | Width / Opacity | Multi-tier width and 60%–100% opacity |
+| **Maintenance** | Open Config Dir / Reset Position / Reload | Config folder and reposition to top-right |
 | **Updates** | Check for Updates | Check for and install a newer version |
 
 ---

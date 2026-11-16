@@ -16,16 +16,24 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](https://github.com/realsuperj/gold-ticker/releases)
 
 <p align="center">
-  支持 <b>上海黄金交易所 Au99.99</b>、<b>国际现货金 (XAU/USD)</b> 以及以 <b>浙商银行积存金</b>（及工行、建行）为代表的主流银行积存金实时行情。<br/>
-  macOS 原生毛玻璃悬浮卡片与顶部菜单栏，Windows 轻量自绘托盘与桌面悬浮窗。
+  <a href="https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker-macOS-Universal2.dmg"><strong>⬇️ macOS 下载 DMG</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker.exe"><strong>⬇️ Windows 下载 EXE</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/realsuperj/gold-ticker/releases/latest">全部发布包</a>
 </p>
 
 <p align="center">
-  <img src="docs/preview-zs.png" width="380" alt="浙商银行积存金实时卡片 (macOS)" />
-  <img src="docs/preview-intl.png" width="380" alt="国际现货黄金 XAU/USD 实时卡片 (macOS)" />
+  支持 <b>上海黄金交易所 Au99.99</b>、<b>国际现货金 (XAU/USD)</b> 以及以 <b>浙商银行积存金</b>（及工行、建行）为代表的主流银行积存金实时行情。<br/>
+  macOS：原生毛玻璃桌面卡片 + 菜单栏；Windows：原生 WPF 桌面悬浮卡片（不占用任务栏、无宽条行情）。
+</p>
+
+<p align="center">
+  <img src="docs/preview-zs.png" width="320" alt="浙商银行积存金实时卡片 (macOS)" />
+  <img src="docs/preview-win-zs.png" width="320" alt="浙商银行积存金实时卡片 (Windows)" />
 </p>
 <p align="center">
-  <sub>浙商银行积存金（元/克）与国际现货黄金（美元/盎司）。正式 macOS 卡片 + 当日真实采样截图。</sub>
+  <sub>左：macOS · 右：Windows（WPF）。浙商积存金实盘样式示意。</sub>
 </p>
 
 </div>
@@ -35,11 +43,11 @@
 ## 核心特点
 
 - 🌟 **全口径黄金行情**：聚合上海黄金交易所 Au99.99 权威基准、国际现货金（XAU/USD 原汁原味美元报价与元/克无缝对照），并支持以浙商银行为代表的商业银行积存金多源实时追踪；
-- 🪟 **极简原生质感**：macOS 原生毛玻璃悬浮卡片与顶部菜单栏轻量常驻；Windows 动态自绘任务栏状态条，安静陪伴不遮挡视线；
-- 📈 **动态分时走势**：内置平滑分时折线与昨收基准参考线，行情异动一目了然；支持一键开启/折叠走势图，卡片高度自适应伸缩；
-- 🔄 **双入口随心调度**：桌面卡片与系统状态栏/托盘双重入口，支持按需隐藏桌面卡片，随时从菜单栏快捷唤起；
-- 🎨 **习惯跟着人走**：配色体系完全基于个人视觉偏好，国内习惯（红涨绿跌）与国际习惯（绿涨红跌）一键全局切换；无论切换任何标的，始终遵循选定法则；
-- 🌐 **轻量双语国际化**：支持简体中文与英文（English），支持跟随系统语言或在菜单中手动指定。
+- 🪟 **极简原生质感**：macOS 为 AppKit 毛玻璃悬浮卡片与菜单栏常驻；Windows 为 .NET Framework 4.8 + WPF 桌面悬浮卡片，不展示任务栏宽条行情，安静不抢焦点；
+- 📈 **动态分时走势**：内置平滑分时折线与昨收基准参考线；支持一键开启/折叠走势图，卡片高度自适应；
+- 🔄 **入口与控制**：两端均可右键卡片打开完整菜单；macOS 另支持桌面卡片与菜单栏图标双入口（可隐藏其一）；
+- 🎨 **习惯跟着人走**：国内习惯（红涨绿跌）与国际习惯（绿涨红跌）一键全局切换，不随标的跳变；
+- 🌐 **轻量双语**：简体中文 / English，可跟随系统或手动指定。
 
 ---
 
@@ -62,9 +70,11 @@ GoldTicker 严格保障金融数据的透明度与准确性，当前收录的 5 
 ## 安装与快速启动
 
 ### 方式一：直接下载发布包 (推荐)
-前往项目的 [Releases](https://github.com/realsuperj/gold-ticker/releases) 页面下载对应系统的最新发布包：
-- **macOS**：下载 `GoldTicker-macOS-Universal2.dmg`（Intel / Apple Silicon），双击拖入 `Applications` 即可运行；
-- **Windows**：直接下载单个免安装绿色版 `GoldTicker.exe`（或 `GoldTicker-Windows-x64.zip`），双击即用，无任何伴随 DLL 或外部依赖。
+
+前往 [Releases](https://github.com/realsuperj/gold-ticker/releases/latest) 下载：
+
+- **macOS**：[`GoldTicker-macOS-Universal2.dmg`](https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker-macOS-Universal2.dmg)（Intel / Apple Silicon），拖入 `Applications` 即可；
+- **Windows**：[`GoldTicker.exe`](https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker.exe) 绿色单文件（或 [`GoldTicker-Windows-x64.zip`](https://github.com/realsuperj/gold-ticker/releases/latest/download/GoldTicker-Windows-x64.zip)），双击即用，无伴随 DLL。
 
 ### 方式二：源码运行与本地构建
 
@@ -88,20 +98,20 @@ GoldTicker 严格保障金融数据的透明度与准确性，当前收录的 5 
 
 ## 菜单控制说明 (Action Matrix)
 
-右键点击桌面悬浮卡片，或点击顶部菜单栏 / 任务栏托盘图标，均可弹出全量控制菜单：
+右键桌面悬浮卡片打开菜单；**macOS** 也可点击菜单栏图标。
 
 | 控制分类 | 功能项 | 说明 |
 | :--- | :--- | :--- |
-| **视⁠图⁠入⁠口** | 显示到桌面 / 显示到托盘 | 支持独立隐藏桌面卡片，保留状态栏常驻 |
-| **图⁠表⁠辅⁠助** | 显示走势图 / 显示高低基准 | 走势图自适应展开与折叠；辅助展示今开、昨收、最高、最低 |
-| **层⁠级⁠调⁠整** | 窗口置顶 | 浮动在所有窗口之上 / 普通桌面层级切换 |
-| **标⁠的⁠切⁠换** | Au99.99 / 国际金 / 浙商 / 工行 / 建行 | 支持人民币元/克与国际美元/盎司快速切换 |
-| **涨⁠跌⁠基⁠准** | 昨收价 / 今开价 | 切换涨跌额与涨跌幅度的计算参考基准 |
-| **色⁠彩⁠偏⁠好** | 红涨绿跌 (国内) / 绿涨红跌 (国际) | 偏好跟着人走，全局生效，不随标的跳变 |
-| **语⁠言⁠切⁠换** | 跟随系统 / 简体中文 / English | 轻量化全界面双语无缝切换 |
-| **刷⁠新⁠频⁠率** | 10秒 / 15秒 / 30秒 / 60秒 / 300秒 | 灵活调节数据更新频率 |
-| **卡⁠片⁠定⁠制** | 宽度 (180~280pt) / 透明度 (60%~100%) | 界面自适应多档排版调节 |
-| **数⁠据⁠管⁠理** | 打开配置目录 / 重置位置 / 重新加载 | 一键定位配置文件，重置窗口至屏幕右上角 |
+| **视⁠图⁠入⁠口**（macOS） | 显示到桌面 / 显示到菜单栏 | 可独立隐藏其一，至少保留一个入口 |
+| **图⁠表⁠辅⁠助** | 显示走势图 / 显示高低基准 | 走势图展开与折叠；展示今开、昨收、最高、最低 |
+| **层⁠级⁠调⁠整** | 窗口置顶 | 浮动在所有窗口之上 / 普通桌面层级 |
+| **标⁠的⁠切⁠换** | Au99.99 / 国际金 / 浙商 / 工行 / 建行 | 人民币元/克与美元/盎司快速切换 |
+| **涨⁠跌⁠基⁠准** | 昨收价 / 今开价 | 涨跌额与幅度的参考基准 |
+| **色⁠彩⁠偏⁠好** | 红涨绿跌 (国内) / 绿涨红跌 (国际) | 全局生效，不随标的跳变 |
+| **语⁠言⁠切⁠换** | 跟随系统 / 简体中文 / English | 全界面双语 |
+| **刷⁠新⁠频⁠率** | 10秒 / 15秒 / 30秒 / 60秒 / 300秒 | 数据轮询间隔 |
+| **卡⁠片⁠定⁠制** | 宽度 / 透明度 | 多档宽度与 60%~100% 透明度 |
+| **数⁠据⁠管⁠理** | 打开配置目录 / 重置位置 / 重新加载 | 定位配置、重置到屏幕右上角 |
 | **更⁠新** | 检查更新 | 检查并安装新版本 |
 
 ---
