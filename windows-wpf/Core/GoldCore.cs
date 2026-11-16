@@ -73,7 +73,7 @@ public sealed class AppConfig
 
 public static class GoldConstants
 {
-    public const string Version = "1.0.5";
+    public const string Version = "1.0.6";
     public const string Copyright = "Copyright © 2026 realsuperj. MIT License.";
     public const string GithubUrl = "https://github.com/realsuperj/gold-ticker";
 

@@ -14,9 +14,9 @@
     <DebugSymbols>false</DebugSymbols>
     <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <Version>1.0.5</Version>
-    <AssemblyVersion>1.0.5.0</AssemblyVersion>
-    <FileVersion>1.0.5.0</FileVersion>
+    <Version>1.0.6</Version>
+    <AssemblyVersion>1.0.6.0</AssemblyVersion>
+    <FileVersion>1.0.6.0</FileVersion>
     <Product>GoldTicker</Product>
     <Company>realsuperj</Company>
     <Copyright>Copyright © 2026 realsuperj. MIT License.</Copyright>
