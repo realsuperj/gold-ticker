@@ -18,21 +18,44 @@ python -m PyInstaller --noconfirm --clean --distpath dist/windows-core --workpat
 if (-not (Test-Path "dist\windows-core\GoldTicker.Core.exe")) { throw "GoldTicker.Core.exe missing" }
 Copy-Item "dist\windows-core\GoldTicker.Core.exe" (Join-Path $Stage "GoldTicker.Core.exe")
 
-Write-Host "==> Publish WinUI (self-contained win-x64)"
+Write-Host "==> Publish WinUI (self-contained win-x64 via VS MSBuild)"
 $Proj = Join-Path $Root "winui\GoldTicker.WinUI\GoldTicker.WinUI.csproj"
 $Publish = Join-Path $Root "dist\winui-publish"
 Remove-Item -Recurse -Force $Publish -ErrorAction SilentlyContinue
-# Do not pass Platform=x64 together with -r win-x64 (RID publish conflict on CI).
-Push-Location (Split-Path $Proj)
-try {
-  dotnet --info
-  dotnet restore
-  dotnet publish -c Release -r win-x64 --self-contained true -o $Publish `
-    -p:WindowsPackageType=None `
-    -p:WindowsAppSDKSelfContained=true `
-    -p:PublishSingleFile=false
-} finally {
-  Pop-Location
+New-Item -ItemType Directory -Force -Path $Publish | Out-Null
+
+$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$msbuild = if (Test-Path $vswhere) {
+  & $vswhere -latest -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+} else { $null }
+
+if ($msbuild) {
+  Write-Host "Using MSBuild: $msbuild"
+  & $msbuild $Proj /t:Restore /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64
+  if ($LASTEXITCODE -ne 0) { throw "MSBuild Restore failed ($LASTEXITCODE)" }
+  & $msbuild $Proj /t:Publish `
+    /p:Configuration=Release `
+    /p:Platform=x64 `
+    /p:RuntimeIdentifier=win-x64 `
+    /p:SelfContained=true `
+    /p:WindowsPackageType=None `
+    /p:WindowsAppSDKSelfContained=true `
+    /p:PublishSingleFile=false `
+    /p:PublishDir="$Publish\"
+  if ($LASTEXITCODE -ne 0) { throw "MSBuild Publish failed ($LASTEXITCODE)" }
+} else {
+  Push-Location (Split-Path $Proj)
+  try {
+    dotnet restore -r win-x64
+    dotnet publish -c Release -r win-x64 --self-contained true -o $Publish `
+      -p:Platform=x64 `
+      -p:WindowsPackageType=None `
+      -p:WindowsAppSDKSelfContained=true `
+      -p:PublishSingleFile=false
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)" }
+  } finally {
+    Pop-Location
+  }
 }
 if (-not (Test-Path (Join-Path $Publish "GoldTicker.WinUI.exe"))) {
   Get-ChildItem $Publish -ErrorAction SilentlyContinue | Format-Table Name, Length

@@ -12,6 +12,9 @@ on:
       - '.github/workflows/winui-package.yml'
 permissions:
   contents: write
+concurrency:
+  group: winui-package-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   package:
     runs-on: windows-latest

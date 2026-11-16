@@ -63,7 +63,7 @@ GoldTicker 严格保障金融数据的透明度与准确性，当前收录的 5 
 ### 方式一：直接下载发布包 (推荐)
 前往项目的 [Releases](https://github.com/realsuperj/gold-ticker/releases) 页面下载对应系统的最新发布包：
 - **macOS**：下载 `GoldTicker-macOS-Universal2.dmg`（Intel / Apple Silicon），双击拖入 `Applications` 即可运行；
-- **Windows**：正式包仍为 PyInstaller/Tk 版 EXE；**观感预览请用 WinUI 壳**（见 [`winui/README.md`](winui/README.md)）：`.\winui\run.ps1`。
+- **Windows**：下载 `GoldTicker-WinUI-Windows-x64.zip`（WinUI 卡片 + Core IPC，见 [`winui/README.md`](winui/README.md)）。
 
 ### 方式二：源码运行与本地安装
 
