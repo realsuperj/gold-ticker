@@ -6,7 +6,7 @@ sys.path.insert(0, str(root))
 from core.product import VERSION
 mac = sys.platform == "darwin"
 a = Analysis([str(root / "goldticker.py")], pathex=[str(root)],
-    datas=[(str(root / "docs/icon-1024.png"), "docs")],
+    datas=[(str(root / "docs/icon-1024.png"), "docs"), (str(root / "shared/spec.json"), "shared")],
     hiddenimports=["mac.main", "PyObjCTools.AppHelper"] if mac else ["windows.main", "pystray._win32", "PIL._tkinter_finder"],
     excludes=["windows", "tkinter", "pystray"] if mac else ["mac", "AppKit", "Foundation", "objc", "PyObjCTools"],
     noarchive=False)

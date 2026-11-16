@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,6 +31,7 @@ public partial class MainWindow : Window
     private int _fetchGen;
     private bool _isFetching;
     private bool _initialPlaced;
+    private bool _updating;
 
     public MainWindow(bool smokeMode = false)
     {
@@ -119,9 +121,9 @@ public partial class MainWindow : Window
         var alpha = (byte)Math.Round(Math.Max(0.60, Math.Min(1.0, _config.Opacity)) * 255.0);
         CardBorder.Background = new SolidColorBrush(Color.FromArgb(alpha, 20, 28, 41));
 
-        double emptyH = 50;
-        if (_config.ShowDetails) emptyH += 14;
-        if (_config.ShowChart) emptyH += 46;
+        double emptyH = 42;
+        if (_config.ShowDetails) emptyH += 12;
+        if (_config.ShowChart) emptyH += 36;
         EmptyPanel.MinHeight = emptyH;
 
         _timer.Interval = TimeSpan.FromSeconds(Math.Max(GoldConstants.MinRefreshSeconds, _config.RefreshSeconds));
@@ -254,7 +256,7 @@ public partial class MainWindow : Window
         var toneBrush = new SolidColorBrush(tone);
         toneBrush.Freeze();
 
-        PriceText.FontSize = _config.Width >= 196 ? 25.0 : (_config.Width >= 162 ? 23.0 : 21.0);
+        PriceText.FontSize = _config.Width >= 168 ? 22.0 : (_config.Width >= 136 ? 20.0 : 18.0);
         PriceText.Text = q.Price.ToString("0.00", CultureInfo.InvariantCulture);
         PriceText.Foreground = toneBrush;
 
@@ -293,8 +295,8 @@ public partial class MainWindow : Window
     private void DrawChart(Color tone, double basis)
     {
         ChartCanvas.Children.Clear();
-        double w = Math.Max(108, _config.Width - 22.0);
-        double h = 36.0;
+        double w = Math.Max(96, _config.Width - 16.0);
+        double h = 28.0;
         ChartCanvas.Width = w;
         ChartCanvas.Height = h;
 
@@ -525,6 +527,7 @@ public partial class MainWindow : Window
 
         var aboutSub = new MenuItem { Header = Txt("aboutMenu") };
         aboutSub.Items.Add(MakeAction(Txt("aboutApp"), ShowAboutDialog));
+        aboutSub.Items.Add(MakeAction(Txt("checkUpdate"), () => _ = CheckForUpdateAsync()));
         aboutSub.Items.Add(MakeAction(Txt("viewDisclaimer"), ShowDisclaimerDialog));
         aboutSub.Items.Add(MakeAction(Txt("visitGithub"), () =>
         {
@@ -582,7 +585,9 @@ public partial class MainWindow : Window
 
     private void ShowAboutDialog()
     {
-        var body = string.Format(CultureInfo.InvariantCulture, Txt("about_body"), GoldConstants.Version, GoldConstants.Copyright);
+        var body = Txt("about_body")
+            .Replace("{version}", GoldConstants.Version)
+            .Replace("{copyright}", GoldConstants.Copyright);
         var dlg = new InfoWindow(Txt("about_title"), body, Txt("ok")) { Owner = this };
         dlg.ShowDialog();
     }
@@ -593,6 +598,91 @@ public partial class MainWindow : Window
         var body = lang == "en" ? GoldConstants.DisclaimerEn : GoldConstants.DisclaimerCn;
         var dlg = new InfoWindow(Txt("disclaimer_title"), body, Txt("ok"), alignLeft: true) { Owner = this };
         dlg.ShowDialog();
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        if (_updating || _smokeMode) return;
+        _updating = true;
+        var wait = new InfoWindow(Txt("checkingUpdate"), Txt("checkingUpdateHint"), Txt("ok")) { Owner = this };
+        wait.Show();
+        try
+        {
+            var result = await UpdateChecker.FetchLatestAsync().ConfigureAwait(true);
+            wait.Close();
+            wait = null;
+
+            if (result.Kind == UpdateChecker.CheckKind.NoPublishedRelease)
+            {
+                var body = Txt("noPublishedRelease").Replace("{version}", GoldConstants.Version);
+                var choice = MessageBox.Show(body + "\n\n" + Txt("openReleasesPage") + "?", Txt("checkUpdate"),
+                    MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (choice == MessageBoxResult.Yes)
+                    Process.Start(new ProcessStartInfo { FileName = GoldConstants.GithubUrl.TrimEnd('/') + "/releases", UseShellExecute = true });
+                return;
+            }
+            if (result.Kind != UpdateChecker.CheckKind.Ok || result.Release == null)
+            {
+                MessageBox.Show(Txt("updateNetworkError"), Txt("checkUpdate"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var rel = result.Release;
+            if (UpdateChecker.CompareVersion(rel.Tag, GoldConstants.Version) <= 0)
+            {
+                MessageBox.Show(Txt("upToDate").Replace("{version}", GoldConstants.Version), Txt("checkUpdate"), MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var ask = MessageBox.Show(
+                Txt("updateAvailable").Replace("{version}", rel.Tag).Replace("{current}", GoldConstants.Version),
+                Txt("checkUpdate"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (ask != MessageBoxResult.Yes) return;
+            if (string.IsNullOrWhiteSpace(rel.DownloadUrl))
+            {
+                MessageBox.Show(Txt("updateNoAsset"), Txt("checkUpdate"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var downloading = new InfoWindow(Txt("updating"), Txt("checkingUpdateHint"), Txt("ok")) { Owner = this };
+            downloading.Show();
+            var tmp = Path.Combine(Path.GetTempPath(), "GoldTicker-update.exe");
+            try
+            {
+                await UpdateChecker.DownloadToFileAsync(rel.DownloadUrl, tmp).ConfigureAwait(true);
+            }
+            catch
+            {
+                downloading.Close();
+                MessageBox.Show(Txt("updateNetworkError"), Txt("checkUpdate"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            downloading.Close();
+
+            var target = Process.GetCurrentProcess().MainModule?.FileName;
+            if (string.IsNullOrEmpty(target) || !File.Exists(target))
+            {
+                MessageBox.Show(Txt("updateFailed").Replace("{error}", "cannot locate running exe"), Txt("checkUpdate"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var bat = UpdateChecker.WriteApplyScript(tmp, target, Process.GetCurrentProcess().Id);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = bat,
+                UseShellExecute = true,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+            });
+            Application.Current.Shutdown();
+        }
+        finally
+        {
+            wait?.Close();
+            _updating = false;
+        }
     }
 
     private static MenuItem MakeAction(string title, Action onClick)

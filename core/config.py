@@ -14,26 +14,32 @@ from core.constants import (
     SUPPORTED_SYMBOLS,
     SYMBOL_AU9999,
 )
+from core.product import load_spec
+
+_SPEC = load_spec()
+_DEFAULTS = _SPEC["defaults"]
+_OPTIONS = _SPEC["options"]
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "symbol": SYMBOL_AU9999,
-    "showOnDesktop": True,
-    "showMenuBarIcon": True,
-    "showChart": True,
-    "showDetails": True,
-    "alwaysOnTop": True,
-    "width": 216,
-    "opacity": 0.88,
-    "refreshSeconds": DEFAULT_REFRESH_SECONDS,
-    "colorMode": "cny",           # "cny" (红涨绿跌) | "intl" (绿涨红跌)
-    "changeBasis": "prevClose",   # "prevClose" (昨收) | "open" (今开)
-    "language": "auto",           # "auto" | "zh" | "en"
-    "windowX": -1,                # -1 表示屏幕右上角默认位置
-    "windowY": -1,
+    "symbol": _DEFAULTS["symbol"],
+    "showOnDesktop": bool(_DEFAULTS["showOnDesktop"]),
+    "showMenuBarIcon": bool(_DEFAULTS["showMenuBarIcon"]),
+    "showChart": bool(_DEFAULTS["showChart"]),
+    "showDetails": bool(_DEFAULTS["showDetails"]),
+    "alwaysOnTop": bool(_DEFAULTS["alwaysOnTop"]),
+    "width": int(_DEFAULTS["winWidth"] if sys.platform == "win32" else _DEFAULTS["macWidth"]),
+    "opacity": float(_DEFAULTS["opacity"]),
+    "refreshSeconds": int(_DEFAULTS["refreshSeconds"]),
+    "colorMode": _DEFAULTS["colorMode"],
+    "changeBasis": _DEFAULTS["changeBasis"],
+    "language": _DEFAULTS["language"],
+    "windowX": float(_DEFAULTS["windowX"]),
+    "windowY": float(_DEFAULTS["windowY"]),
 }
 
-VALID_WIDTHS = (180, 200, 216, 240, 280)
-VALID_REFRESH_INTERVALS = (10, 15, 30, 60, 300)
+VALID_WIDTHS = tuple(int(x) for x in (_OPTIONS["winWidths"] if sys.platform == "win32" else _OPTIONS["macWidths"]))
+VALID_REFRESH_INTERVALS = tuple(int(x) for x in _OPTIONS["refreshIntervals"])
+VALID_OPACITIES = tuple(float(x) for x in _OPTIONS["opacities"])
 
 
 def get_app_data_dir() -> Path:

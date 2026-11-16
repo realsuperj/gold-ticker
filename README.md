@@ -65,31 +65,24 @@ GoldTicker 严格保障金融数据的透明度与准确性，当前收录的 5 
 - **macOS**：下载 `GoldTicker-macOS-Universal2.dmg`（Intel / Apple Silicon），双击拖入 `Applications` 即可运行；
 - **Windows**：直接下载单个免安装绿色版 `GoldTicker.exe`（或 `GoldTicker-Windows-x64.zip`），双击即用，无任何伴随 DLL 或外部依赖。
 
-### 方式二：源码运行与本地安装
+### 方式二：源码运行与本地构建
 
-源码统一使用 `python goldticker.py`（macOS 和 Windows），可从任意工作目录使用绝对路径启动。
-
-本地和 CI 均使用 `python tools/build.py` 与 `GoldTicker.spec`（`target_arch=universal2`），产物为 `GoldTicker-macOS-Universal2.dmg`。`python goldticker.py --smoke-test` 在临时配置目录运行离线原生界面冒烟。
+跨端业务规则、标的估算点差与多语言字典统一维护于唯一真源 `shared/spec.json`，两端发布包均为 **`< 1 MB` 零依赖原生可执行产物**：
+- **macOS**：`mac-native/GoldTicker.swift`（原生 Swift + AppKit，`arm64 + x86_64` Universal2），运行 `python3 tools/build.py` 产出 `GoldTicker-macOS-Universal2.dmg`。
+- **Windows**：`windows-wpf/`（原生 `.NET Framework 4.8 + WPF`），运行 `.\tools\build_windows_wpf.ps1` 产出单文件 `GoldTicker.exe`。
 
 #### macOS 本地安装与启动
 ```bash
-# 1. 安装依赖 (Python 3.9+)
-pip install -r requirements.txt
-pip install "pyinstaller>=6.11,<7"
-
-# 2. 本地安装为系统应用并自动启动
+# 本地编译 Universal2 原生应用并安装
 ./install.sh                # 安装至 ~/Applications/GoldTicker.app
 ./install.sh --autostart    # 同时设置开机自启动（开机进入桌面自动运行，无需任何账号）
 ```
 
-#### Windows 本地启动
+#### Windows 本地构建与启动
 ```powershell
-# 1. 安装依赖
-pip install -r requirements.txt
-pip install "pyinstaller>=6.11,<7"
-
-# 2. 启动 Windows 表现层
-python goldticker.py
+# 编译原生单文件 EXE 并启动
+.\tools\build_windows_wpf.ps1
+.\dist\windows\GoldTicker.exe
 ```
 
 ---

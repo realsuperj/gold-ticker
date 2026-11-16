@@ -1,75 +1,162 @@
-"""Build a native self-contained package using the common entry/spec."""
+"""Build lightweight native self-contained packages (macOS ObjC Universal2 <1MB / Windows WPF <1MB)."""
+from __future__ import annotations
+
 import hashlib
-import platform
+import plistlib
 import shutil
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from core.product import VERSION, COPYRIGHT
+from core.product import BUNDLE_ID, COPYRIGHT, PRODUCT_NAME, VERSION
+
+
+def _build_compact_icns(src_png: Path, out_icns: Path, work_dir: Path) -> None:
+    """用系统原生 sips + iconutil 生成紧凑高清 .icns（无需 Pillow，体积仅约 150~220KB）。"""
+    iconset = work_dir / "AppIcon.iconset"
+    if iconset.exists():
+        shutil.rmtree(iconset)
+    iconset.mkdir(parents=True)
+
+    # 包含菜单栏/Finder/关于框常用档位（省去冗余 512@2x 巨图，兼顾视网膜清晰度与 <1MB 目标）
+    specs = [
+        ("icon_16x16.png", 16),
+        ("icon_16x16@2x.png", 32),
+        ("icon_32x32.png", 32),
+        ("icon_32x32@2x.png", 64),
+        ("icon_128x128.png", 128),
+        ("icon_128x128@2x.png", 256),
+        ("icon_256x256.png", 256),
+        ("icon_256x256@2x.png", 512),
+    ]
+    for filename, px in specs:
+        dest = iconset / filename
+        subprocess.run(
+            ["sips", "-z", str(px), str(px), str(src_png), "--out", str(dest)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    out_icns.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(out_icns)], check=True)
+    shutil.rmtree(iconset)
 
 
 def _make_macos_dmg(app: Path, artifact: Path) -> None:
-    """DMG 含 .app + Applications 符号链接，便于「拖入 Applications」安装。"""
+    """DMG 含 GoldTicker.app + Applications 符号链接，支持标准拖拽安装。"""
     stage = app.parent / "dmg-stage"
     if stage.exists():
         shutil.rmtree(stage)
     stage.mkdir(parents=True)
-    staged_app = stage / app.name
-    # 拷贝而非移动，保留 dist 下的 .app 便于本地调试
-    shutil.copytree(app, staged_app, symlinks=True)
-    applications = stage / "Applications"
-    applications.symlink_to("/Applications")
+    shutil.copytree(app, stage / app.name, symlinks=True)
+    (stage / "Applications").symlink_to("/Applications")
     if artifact.exists():
         artifact.unlink()
     subprocess.run(
-        ["hdiutil", "create", "-volname", "GoldTicker", "-srcfolder", str(stage),
-         "-ov", "-format", "UDZO", str(artifact)],
+        [
+            "hdiutil", "create",
+            "-volname", PRODUCT_NAME,
+            "-srcfolder", str(stage),
+            "-ov", "-format", "UDZO",
+            "-imagekey", "zlib-level=9",
+            str(artifact),
+        ],
         check=True,
     )
     shutil.rmtree(stage)
 
 
-def main():
-    if sys.platform not in ("darwin", "win32"):
-        raise SystemExit("Run with native macOS or Windows Python (Wine is experimental).")
-    from PIL import Image
-    build = ROOT / "build"
-    build.mkdir(exist_ok=True)
-    mac = sys.platform == "darwin"
-    icon = Image.open(ROOT / "docs/icon-1024.png").convert("RGBA")
-    icon.save(build / ("AppIcon.icns" if mac else "GoldTicker.ico"))
-    if not mac:
-        from PyInstaller.utils.win32.versioninfo import VSVersionInfo, FixedFileInfo, StringFileInfo, StringTable, StringStruct, VarFileInfo, VarStruct
-        version = tuple(int(n) for n in VERSION.split(".")) + (0,)
-        fields = {"CompanyName": "realsuperj", "FileDescription": "GoldTicker Desktop Gold Price Widget",
-                  "FileVersion": VERSION, "InternalName": "GoldTicker", "LegalCopyright": COPYRIGHT,
-                  "OriginalFilename": "GoldTicker.exe", "ProductName": "GoldTicker", "ProductVersion": VERSION}
-        info = VSVersionInfo(ffi=FixedFileInfo(filevers=version, prodvers=version, mask=0x3f, flags=0, OS=0x40004, fileType=1, subtype=0, date=(0, 0)),
-            kids=[StringFileInfo([StringTable("040904B0", [StringStruct(k, v) for k, v in fields.items()])]), VarFileInfo([VarStruct("Translation", [1033, 1200])])])
-        (ROOT / "windows/version.txt").write_text(str(info), encoding="utf-8")
-    dist = ROOT / "dist" / ("macos" if mac else "windows")
-    subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--distpath", str(dist),
-                    "--workpath", str(build / "pyinstaller"), str(ROOT / "GoldTicker.spec")], cwd=ROOT, check=True)
-    if mac:
-        app = dist / "GoldTicker.app"
-        subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app)], check=True)
-        artifact = dist / "GoldTicker-macOS-Universal2.dmg"
-        _make_macos_dmg(app, artifact)
-    else:
-        arch = "x64" if platform.machine().lower() in ("amd64", "x86_64") else platform.machine().lower()
-        artifact = dist / f"GoldTicker-Windows-{arch}.zip"
-        with zipfile.ZipFile(artifact, "w", zipfile.ZIP_DEFLATED) as archive:
-            archive.write(dist / "GoldTicker.exe", "GoldTicker.exe")
-        write_hash(dist / "GoldTicker.exe")
+def build_macos() -> Path:
+    build_dir = ROOT / "build" / "mac-native"
+    dist_dir = ROOT / "dist" / "macos"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    for stale in ("GoldTicker-arm64", "GoldTicker-x86_64", PRODUCT_NAME, "dmg-stage", "AppIcon.iconset"):
+        p = build_dir / stale
+        if p.is_dir():
+            shutil.rmtree(p)
+        elif p.exists():
+            p.unlink()
+
+    objc_src = ROOT / "mac-native" / "GoldTicker.m"
+    uni_bin = build_dir / PRODUCT_NAME
+
+    print("Compiling Universal2 (clang objc-arc)…", flush=True)
+    subprocess.run(
+        [
+            "clang",
+            "-fobjc-arc",
+            "-Os",
+            "-mmacosx-version-min=12.0",
+            "-arch", "arm64",
+            "-arch", "x86_64",
+            "-framework", "AppKit",
+            "-framework", "Foundation",
+            str(objc_src),
+            "-o", str(uni_bin),
+        ],
+        check=True,
+    )
+    subprocess.run(["strip", "-x", str(uni_bin)], check=True)
+    print(f"Universal binary: {uni_bin.stat().st_size / 1024:.1f} KB", flush=True)
+
+    app_dir = dist_dir / f"{PRODUCT_NAME}.app"
+    if app_dir.exists():
+        shutil.rmtree(app_dir)
+    macos_dir = app_dir / "Contents" / "MacOS"
+    res_dir = app_dir / "Contents" / "Resources"
+    macos_dir.mkdir(parents=True)
+    res_dir.mkdir(parents=True)
+
+    shutil.copy2(uni_bin, macos_dir / PRODUCT_NAME)
+    (macos_dir / PRODUCT_NAME).chmod(0o755)
+    shutil.copy2(ROOT / "shared" / "spec.json", res_dir / "spec.json")
+    _build_compact_icns(ROOT / "docs" / "icon-1024.png", res_dir / "AppIcon.icns", build_dir)
+
+    info_plist = {
+        "CFBundleDevelopmentRegion": "zh_CN",
+        "CFBundleDisplayName": PRODUCT_NAME,
+        "CFBundleExecutable": PRODUCT_NAME,
+        "CFBundleIconFile": "AppIcon",
+        "CFBundleIdentifier": BUNDLE_ID,
+        "CFBundleInfoDictionaryVersion": "6.0",
+        "CFBundleName": PRODUCT_NAME,
+        "CFBundlePackageType": "APPL",
+        "CFBundleShortVersionString": VERSION,
+        "CFBundleVersion": VERSION,
+        "LSMinimumSystemVersion": "12.0",
+        "LSUIElement": True,
+        "NSHighResolutionCapable": True,
+        "NSHumanReadableCopyright": COPYRIGHT,
+    }
+    (app_dir / "Contents" / "Info.plist").write_bytes(plistlib.dumps(info_plist))
+
+    subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app_dir)], check=True)
+    artifact = dist_dir / "GoldTicker-macOS-Universal2.dmg"
+    _make_macos_dmg(app_dir, artifact)
     write_hash(artifact)
-    print(f"Built {artifact}")
+    return artifact
 
 
-def write_hash(path):
-    path.with_name(path.name + ".sha256").write_text(hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.name + "\n", encoding="ascii")
+def write_hash(path: Path) -> None:
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    path.with_name(path.name + ".sha256").write_text(f"{digest}  {path.name}\n", encoding="ascii")
+
+
+def main() -> None:
+    if sys.platform == "darwin":
+        artifact = build_macos()
+        print(f"Built {artifact} ({artifact.stat().st_size / 1024:.1f} KB)")
+    elif sys.platform == "win32":
+        subprocess.run(
+            ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(ROOT / "tools" / "build_windows_wpf.ps1")],
+            cwd=ROOT,
+            check=True,
+        )
+    else:
+        raise SystemExit("Run on native macOS or Windows.")
 
 
 if __name__ == "__main__":

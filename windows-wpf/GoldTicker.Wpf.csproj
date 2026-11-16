@@ -14,9 +14,9 @@
     <DebugSymbols>false</DebugSymbols>
     <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <Version>1.0.7</Version>
-    <AssemblyVersion>1.0.7.0</AssemblyVersion>
-    <FileVersion>1.0.7.0</FileVersion>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.0</FileVersion>
     <Product>GoldTicker</Product>
     <Company>realsuperj</Company>
     <Copyright>Copyright © 2026 realsuperj. MIT License.</Copyright>
@@ -29,5 +29,6 @@
 
   <ItemGroup>
     <Resource Include="..\docs\icon-1024.png" Link="Assets\icon.png" />
+    <EmbeddedResource Include="..\shared\spec.json" LogicalName="GoldTicker.spec.json" />
   </ItemGroup>
 </Project>

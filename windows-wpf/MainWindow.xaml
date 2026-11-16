@@ -11,16 +11,16 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
   <Border x:Name="CardBorder"
-          Margin="6"
-          Width="176"
-          CornerRadius="10"
+          Margin="4"
+          Width="136"
+          CornerRadius="9"
           Background="#E0141C29"
           BorderBrush="#22FFFFFF"
           BorderThickness="1"
-          Padding="11,7,11,7"
+          Padding="8,5,8,5"
           MouseLeftButtonDown="CardBorder_MouseLeftButtonDown">
     <Border.Effect>
-      <DropShadowEffect BlurRadius="10" ShadowDepth="3" Direction="270" Opacity="0.42" Color="#000000" />
+      <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270" Opacity="0.38" Color="#000000" />
     </Border.Effect>
     <Border.ContextMenu>
       <ContextMenu x:Name="CardMenu" Opened="CardMenu_Opened" />
@@ -34,19 +34,19 @@
         <TextBlock x:Name="EmptyTitleText"
                    Text="刷新中..."
                    FontFamily="Segoe UI, Microsoft YaHei UI"
-                   FontSize="10.5"
+                   FontSize="9.5"
                    Foreground="#9EFFFFFF"
                    HorizontalAlignment="Center"
                    TextAlignment="Center" />
         <TextBlock x:Name="EmptySubText"
-                   Margin="0,3,0,0"
+                   Margin="0,2,0,0"
                    FontFamily="Segoe UI, Microsoft YaHei UI"
-                   FontSize="8.5"
+                   FontSize="8"
                    Foreground="#57FFFFFF"
                    HorizontalAlignment="Center"
                    TextAlignment="Center"
                    TextTrimming="CharacterEllipsis"
-                   MaxWidth="156"
+                   MaxWidth="120"
                    Visibility="Collapsed" />
       </StackPanel>
 
@@ -54,14 +54,14 @@
         <Viewbox StretchDirection="DownOnly" Stretch="Uniform" HorizontalAlignment="Left">
           <TextBlock x:Name="HeaderText"
                      FontFamily="Segoe UI, Microsoft YaHei UI"
-                     FontSize="10"
+                     FontSize="9"
                      Foreground="#B3FFFFFF" />
         </Viewbox>
 
         <Viewbox StretchDirection="DownOnly" Stretch="Uniform" HorizontalAlignment="Left" Margin="-1,0,0,0">
           <TextBlock x:Name="PriceText"
                      FontFamily="Segoe UI"
-                     FontSize="23"
+                     FontSize="20"
                      FontWeight="Bold"
                      Typography.NumeralAlignment="Tabular" />
         </Viewbox>
@@ -69,32 +69,32 @@
         <Viewbox StretchDirection="DownOnly" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,-1,0,0">
           <TextBlock x:Name="DeltaText"
                      FontFamily="Segoe UI"
-                     FontSize="10.8"
+                     FontSize="9.5"
                      FontWeight="Medium"
                      Typography.NumeralAlignment="Tabular" />
         </Viewbox>
 
-        <Viewbox x:Name="DetailsBox" StretchDirection="DownOnly" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,3,0,0">
+        <Viewbox x:Name="DetailsBox" StretchDirection="DownOnly" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,2,0,0">
           <TextBlock x:Name="DetailsText"
                      FontFamily="Segoe UI, Microsoft YaHei UI"
-                     FontSize="9.2"
+                     FontSize="8.2"
                      Foreground="#80FFFFFF"
                      Typography.NumeralAlignment="Tabular" />
         </Viewbox>
 
-        <StackPanel x:Name="ChartPanel" Margin="0,5,0,0">
-          <Canvas x:Name="ChartCanvas" Height="36" ClipToBounds="False" />
-          <Grid x:Name="TimeAxisRow" Margin="0,2,0,0">
+        <StackPanel x:Name="ChartPanel" Margin="0,3,0,0">
+          <Canvas x:Name="ChartCanvas" Height="28" ClipToBounds="False" />
+          <Grid x:Name="TimeAxisRow" Margin="0,1,0,0">
             <TextBlock x:Name="StartTimeText"
                        HorizontalAlignment="Left"
                        FontFamily="Segoe UI"
-                       FontSize="8.2"
+                       FontSize="7.5"
                        Foreground="#61FFFFFF"
                        Typography.NumeralAlignment="Tabular" />
             <TextBlock x:Name="EndTimeText"
                        HorizontalAlignment="Right"
                        FontFamily="Segoe UI"
-                       FontSize="8.2"
+                       FontSize="7.5"
                        Foreground="#61FFFFFF"
                        Typography.NumeralAlignment="Tabular" />
           </Grid>

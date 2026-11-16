@@ -5,6 +5,11 @@ __pycache__/
 
 # Distribution / packaging
 dist/
+build/mac-native/
+build/swift-module-cache/
+build/swift-mc/
+build/swift-fast-mc/
+build/wpf-out/
 build/win-pyinstaller/
 *.egg-info/
 .installed.cfg

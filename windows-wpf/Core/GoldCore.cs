@@ -61,7 +61,7 @@ public sealed class AppConfig
     public bool ShowChart { get; set; } = true;
     public bool ShowDetails { get; set; } = true;
     public bool AlwaysOnTop { get; set; } = true;
-    public int Width { get; set; } = 176;
+    public int Width { get; set; } = 136;
     public double Opacity { get; set; } = 0.88;
     public int RefreshSeconds { get; set; } = 10;
     public string ColorMode { get; set; } = "cny";
@@ -73,91 +73,116 @@ public sealed class AppConfig
 
 public static class GoldConstants
 {
-    public const string Version = "1.0.7";
-    public const string Copyright = "Copyright © 2026 realsuperj. MIT License.";
-    public const string GithubUrl = "https://github.com/realsuperj/gold-ticker";
-
     public const string SymbolAu9999 = "au9999";
     public const string SymbolZsJcj = "zs_jcj";
     public const string SymbolIcbcJcj = "icbc_jcj";
     public const string SymbolCcbJcj = "ccb_jcj";
     public const string SymbolXauUsd = "xau_usd";
 
-    public static readonly string[] SupportedSymbols =
+    public static readonly string Version;
+    public static readonly string Copyright;
+    public static readonly string GithubUrl;
+    public static readonly string ReleasesApi;
+    public static readonly string WinAssetHint;
+    public static readonly string TangdouzUrl;
+    public static readonly string SinaHqUrl;
+    public static readonly string SinaReferer;
+    public static readonly int DefaultWinWidth;
+    public static readonly int MinRefreshSeconds;
+    public static readonly int CoolDownSeconds;
+    public static readonly int MaxFailuresBeforeCooldown;
+    public static readonly int HistoryKeepDays;
+    public static readonly string DisclaimerCn;
+    public static readonly string DisclaimerEn;
+    public static readonly string[] SupportedSymbols;
+    public static readonly int[] ValidWidths;
+    public static readonly int[] ValidRefreshIntervals;
+    public static readonly double[] ValidOpacities;
+    public static readonly Dictionary<string, SymbolMeta> Meta = new Dictionary<string, SymbolMeta>();
+    public static readonly Dictionary<string, string> LegacySymbolMap = new Dictionary<string, string>();
+    internal static readonly Dictionary<string, (string zh, string en)> I18nDict = new Dictionary<string, (string, string)>();
+
+    static GoldConstants()
     {
-        SymbolAu9999, SymbolZsJcj, SymbolIcbcJcj, SymbolCcbJcj, SymbolXauUsd
-    };
+        using var stream = typeof(GoldConstants).Assembly.GetManifestResourceStream("GoldTicker.spec.json")
+            ?? throw new InvalidOperationException("Embedded GoldTicker.spec.json missing");
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        var root = (IDictionary<string, object>)MiniJson.Parse(reader.ReadToEnd());
 
-    public static readonly int[] ValidWidths = { 148, 162, 176, 196, 216, 240 };
-    public static readonly int[] ValidRefreshIntervals = { 10, 15, 30, 60, 300 };
-    public static readonly double[] ValidOpacities = { 0.60, 0.75, 0.88, 0.95, 1.00 };
+        var product = (IDictionary<string, object>)root["product"];
+        Version = Convert.ToString(product["version"], CultureInfo.InvariantCulture);
+        Copyright = Convert.ToString(product["copyright"], CultureInfo.InvariantCulture);
+        GithubUrl = Convert.ToString(product["githubUrl"], CultureInfo.InvariantCulture);
+        ReleasesApi = product.TryGetValue("releasesApi", out var ra) && ra != null
+            ? Convert.ToString(ra, CultureInfo.InvariantCulture)
+            : GithubUrl.TrimEnd('/') + "/releases/latest";
+        WinAssetHint = product.TryGetValue("winAssetHint", out var wh) && wh != null
+            ? Convert.ToString(wh, CultureInfo.InvariantCulture)
+            : "GoldTicker.exe";
 
-    public const int MinRefreshSeconds = 10;
-    public const int CoolDownSeconds = 180;
+        var limits = (IDictionary<string, object>)root["limits"];
+        MinRefreshSeconds = Convert.ToInt32(limits["minRefreshSeconds"], CultureInfo.InvariantCulture);
+        CoolDownSeconds = Convert.ToInt32(limits["coolDownSeconds"], CultureInfo.InvariantCulture);
+        MaxFailuresBeforeCooldown = Convert.ToInt32(limits["maxFailuresBeforeCooldown"], CultureInfo.InvariantCulture);
+        HistoryKeepDays = Convert.ToInt32(limits["historyKeepDays"], CultureInfo.InvariantCulture);
 
-    public const string DisclaimerCn =
-        "【免责声明】本软件仅供个人行情参考与学习交流，不构成任何投资建议或交易依据。" +
-        "积存金价格基于基准行情或常规点差估算，遇极端行情或非交易时段，银行可能调整点差，实际成交以各银行客户端为准。" +
-        "数据来源于公开公共网络接口，存在网络传输延迟，据此操作风险自担。";
+        var defaults = (IDictionary<string, object>)root["defaults"];
+        DefaultWinWidth = Convert.ToInt32(defaults["winWidth"], CultureInfo.InvariantCulture);
 
-    public const string DisclaimerEn =
-        "[Disclaimer] GoldTicker is provided solely for personal market tracking and educational purposes, and does not constitute investment or trading advice. " +
-        "Commercial bank gold quotes may use standard spread estimates and differ from actual execution prices during volatile or off-market hours. " +
-        "Market feeds come from public internet endpoints subject to latency; trade at your own risk.";
+        var options = (IDictionary<string, object>)root["options"];
+        ValidWidths = ((IEnumerable)options["winWidths"]).Cast<object>().Select(x => Convert.ToInt32(x, CultureInfo.InvariantCulture)).ToArray();
+        ValidRefreshIntervals = ((IEnumerable)options["refreshIntervals"]).Cast<object>().Select(x => Convert.ToInt32(x, CultureInfo.InvariantCulture)).ToArray();
+        ValidOpacities = ((IEnumerable)options["opacities"]).Cast<object>().Select(x => Convert.ToDouble(x, CultureInfo.InvariantCulture)).ToArray();
 
-    public static readonly Dictionary<string, SymbolMeta> Meta = new Dictionary<string, SymbolMeta>
-    {
-        [SymbolAu9999] = new SymbolMeta { Id = SymbolAu9999, NameCn = "上金所 Au99.99", NameEn = "SGE Au99.99", CardEn = "SGE · Au99.99", UnitCn = "元/克", UnitEn = "CNY/g" },
-        [SymbolZsJcj] = new SymbolMeta { Id = SymbolZsJcj, NameCn = "浙商银行积存金", NameEn = "Zheshang Gold", CardEn = "CZBank · Gold", UnitCn = "元/克", UnitEn = "CNY/g" },
-        [SymbolIcbcJcj] = new SymbolMeta { Id = SymbolIcbcJcj, NameCn = "工商银行积存金", NameEn = "ICBC Gold", CardEn = "ICBC · Gold (Est. Spread)", UnitCn = "元/克", UnitEn = "CNY/g", IsEstimated = true, Spread = 0.80 },
-        [SymbolCcbJcj] = new SymbolMeta { Id = SymbolCcbJcj, NameCn = "建设银行积存金", NameEn = "CCB Gold", CardEn = "CCB · Gold (Est. Spread)", UnitCn = "元/克", UnitEn = "CNY/g", IsEstimated = true, Spread = 0.75 },
-        [SymbolXauUsd] = new SymbolMeta { Id = SymbolXauUsd, NameCn = "伦敦金现货 (XAU)", NameEn = "XAU/USD Spot", CardEn = "Spot Gold · XAU/USD", UnitCn = "美元/盎司", UnitEn = "USD/oz" },
-    };
+        var endpoints = (IDictionary<string, object>)root["endpoints"];
+        TangdouzUrl = Convert.ToString(endpoints["tangdouzUrl"], CultureInfo.InvariantCulture);
+        SinaHqUrl = Convert.ToString(endpoints["sinaHqUrl"], CultureInfo.InvariantCulture);
+        SinaReferer = Convert.ToString(endpoints["sinaReferer"], CultureInfo.InvariantCulture);
+
+        var disclaimers = (IDictionary<string, object>)root["disclaimers"];
+        DisclaimerCn = Convert.ToString(disclaimers["zh"], CultureInfo.InvariantCulture);
+        DisclaimerEn = Convert.ToString(disclaimers["en"], CultureInfo.InvariantCulture);
+
+        var symList = new List<string>();
+        foreach (IDictionary<string, object> s in (IEnumerable)root["symbols"])
+        {
+            var id = Convert.ToString(s["id"], CultureInfo.InvariantCulture);
+            symList.Add(id);
+            Meta[id] = new SymbolMeta
+            {
+                Id = id,
+                NameCn = Convert.ToString(s["name_cn"], CultureInfo.InvariantCulture),
+                NameEn = Convert.ToString(s["name_en"], CultureInfo.InvariantCulture),
+                CardEn = Convert.ToString(s["card_en"], CultureInfo.InvariantCulture),
+                UnitCn = Convert.ToString(s["unit_cn"], CultureInfo.InvariantCulture),
+                UnitEn = Convert.ToString(s["unit_en"], CultureInfo.InvariantCulture),
+                IsEstimated = Convert.ToBoolean(s["is_estimated"], CultureInfo.InvariantCulture),
+                Spread = Convert.ToDouble(s["spread"], CultureInfo.InvariantCulture),
+            };
+        }
+        SupportedSymbols = symList.ToArray();
+
+        if (root.TryGetValue("legacySymbolMap", out var lsm) && lsm is IDictionary<string, object> lsmDict)
+        {
+            foreach (var kv in lsmDict)
+                LegacySymbolMap[kv.Key] = Convert.ToString(kv.Value, CultureInfo.InvariantCulture);
+        }
+
+        var i18n = (IDictionary<string, object>)root["i18n"];
+        foreach (var kv in i18n)
+        {
+            if (kv.Value is IDictionary<string, object> pair)
+            {
+                var zh = pair.TryGetValue("zh", out var zv) ? Convert.ToString(zv, CultureInfo.InvariantCulture) : kv.Key;
+                var en = pair.TryGetValue("en", out var ev) ? Convert.ToString(ev, CultureInfo.InvariantCulture) : zh;
+                I18nDict[kv.Key] = (zh, en);
+            }
+        }
+    }
 }
 
 public static class GoldI18n
 {
-    private static readonly Dictionary<string, (string zh, string en)> Dict = new Dictionary<string, (string, string)>
-    {
-        ["refreshing"] = ("刷新中...", "Refreshing..."),
-        ["fetch_error"] = ("行情暂不可用", "Quote unavailable"),
-        ["alwaysOnTop"] = ("窗口置顶", "Always on Top"),
-        ["showChart"] = ("显示走势图", "Show Chart"),
-        ["showDetails"] = ("显示 高/低/基准价", "Show High/Low/Base Price"),
-        ["cardWidth"] = ("卡片宽度", "Card Width"),
-        ["cardOpacity"] = ("卡片透明度", "Card Opacity"),
-        ["resetPos"] = ("重置窗口位置", "Reset Window Position"),
-        ["symbols"] = ("行情标的", "Gold Symbols"),
-        ["changeBasis"] = ("涨跌对比", "Price Change Basis"),
-        ["prevClose"] = ("较昨收价 (prevClose)", "vs Prev Close (prevClose)"),
-        ["openPrice"] = ("较今开盘 (open)", "vs Open Price (open)"),
-        ["colorMode"] = ("涨跌配色", "Color Mode"),
-        ["cnyColors"] = ("红涨绿跌 (国内习惯)", "Red Up / Green Down (CN)"),
-        ["intlColors"] = ("绿涨红跌 (国际习惯)", "Green Up / Red Down (Intl)"),
-        ["menu_language"] = ("语言 (Language)", "Language (语言)"),
-        ["menu_lang_auto"] = ("跟随系统 (Auto)", "Auto (System Default)"),
-        ["menu_lang_zh"] = ("简体中文", "Simplified Chinese (简体中文)"),
-        ["menu_lang_en"] = ("English", "English"),
-        ["refreshInterval"] = ("刷新频率", "Refresh Interval"),
-        ["seconds"] = ("秒", "seconds"),
-        ["recommend"] = ("推荐", "Recommended"),
-        ["advanced"] = ("高级与配置", "Advanced Settings"),
-        ["openConfigFolder"] = ("打开配置文件所在目录", "Open Configuration Directory"),
-        ["reloadConfig"] = ("重新加载配置 (免重启)", "Reload Configuration (No Restart)"),
-        ["clearCache"] = ("清除走势缓存与历史", "Clear Intraday Trend Cache"),
-        ["aboutMenu"] = ("关于与免责", "About & Disclaimer"),
-        ["aboutApp"] = ("关于 GoldTicker...", "About GoldTicker..."),
-        ["viewDisclaimer"] = ("查看免责声明...", "View Financial Disclaimer..."),
-        ["visitGithub"] = ("访问 GitHub 仓库", "Visit GitHub Repository"),
-        ["quitApp"] = ("退出 GoldTicker", "Quit GoldTicker"),
-        ["estTag"] = ("(估算)", "(Est)"),
-        ["estSpreadCn"] = ("(点差估算)", "(Est. Spread)"),
-        ["about_title"] = ("关于 GoldTicker", "About GoldTicker"),
-        ["about_body"] = ("版本：{0}\n轻量桌面黄金行情小组件\n{1}", "Version: {0}\nLightweight desktop gold price widget\n{1}"),
-        ["disclaimer_title"] = ("免责声明与数据说明", "Disclaimer & Data Sources"),
-        ["ok"] = ("确定", "OK"),
-    };
-
     public static string ResolveLanguage(string setting)
     {
         var s = (setting ?? "auto").Trim().ToLowerInvariant();
@@ -170,7 +195,7 @@ public static class GoldI18n
     public static string T(string key, string langSetting)
     {
         var lang = ResolveLanguage(langSetting);
-        if (!Dict.TryGetValue(key, out var pair)) return key;
+        if (!GoldConstants.I18nDict.TryGetValue(key, out var pair)) return key;
         return lang == "en" ? pair.en : pair.zh;
     }
 }
@@ -224,7 +249,7 @@ public static class GoldStorage
 
     public static AppConfig SanitizeConfig(IDictionary<string, object> d)
     {
-        var c = new AppConfig();
+        var c = new AppConfig { Width = GoldConstants.DefaultWinWidth };
         if (d == null) return c;
 
         string GetStr(string k, string alt = null)
@@ -429,7 +454,8 @@ public static class GoldStorage
 
     private static string NormalizeSymbol(string s)
     {
-        if (s == "sina_au9999" || s == "tangdouz") return GoldConstants.SymbolAu9999;
+        if (!string.IsNullOrEmpty(s) && GoldConstants.LegacySymbolMap.TryGetValue(s, out var mapped))
+            return mapped;
         return s;
     }
 
@@ -568,8 +594,6 @@ public static class GoldStorage
 
 public sealed class PricingEngine
 {
-    private const string TangdouzUrl = "https://api.tangdouz.com/a/zsgold.php";
-    private const string SinaHqUrl = "https://hq.sinajs.cn/list=";
     private const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
     private static readonly HttpClient Http;
@@ -752,7 +776,7 @@ public sealed class PricingEngine
 
     private static async Task<Pack> FetchTangdouzRawAsync()
     {
-        var raw = await HttpGetBytesAsync(TangdouzUrl).ConfigureAwait(false);
+        var raw = await HttpGetBytesAsync(GoldConstants.TangdouzUrl).ConfigureAwait(false);
         string text;
         try { text = StrictUtf8.GetString(raw); }
         catch { text = DecodeGb(raw); }
@@ -782,7 +806,7 @@ public sealed class PricingEngine
 
     private static async Task<Dictionary<string, string[]>> FetchSinaListAsync(string codes)
     {
-        var raw = await HttpGetBytesAsync(SinaHqUrl + codes, "https://finance.sina.com.cn").ConfigureAwait(false);
+        var raw = await HttpGetBytesAsync(GoldConstants.SinaHqUrl + codes, GoldConstants.SinaReferer).ConfigureAwait(false);
         var text = DecodeGb(raw);
         var map = new Dictionary<string, string[]>();
         foreach (var line in text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
@@ -879,7 +903,7 @@ public sealed class PricingEngine
         {
             _failures.TryGetValue(id, out var r);
             var fails = r.fails + 1;
-            var until = fails >= 2 ? DateTime.UtcNow.AddSeconds(GoldConstants.CoolDownSeconds) : r.until;
+            var until = fails >= GoldConstants.MaxFailuresBeforeCooldown ? DateTime.UtcNow.AddSeconds(GoldConstants.CoolDownSeconds) : r.until;
             _failures[id] = (fails, until);
         }
     }
@@ -1008,5 +1032,142 @@ internal static class MiniJson
         while (i < s.Length && "0123456789+-.eE".IndexOf(s[i]) >= 0) i++;
         double.TryParse(s.Substring(start, i - start), NumberStyles.Any, CultureInfo.InvariantCulture, out var d);
         return d;
+    }
+}
+
+public static class UpdateChecker
+{
+    public enum CheckKind { Ok, NoPublishedRelease, NetworkError }
+
+    public sealed class ReleaseInfo
+    {
+        public string Tag = "";
+        public string DownloadUrl = "";
+        public string AssetName = "";
+    }
+
+    public sealed class CheckResult
+    {
+        public CheckKind Kind;
+        public ReleaseInfo Release;
+    }
+
+    public static int CompareVersion(string a, string b)
+    {
+        static int Part(string s, int i)
+        {
+            if (s.StartsWith("v", StringComparison.OrdinalIgnoreCase)) s = s.Substring(1);
+            var bits = s.Split('.');
+            return i < bits.Length && int.TryParse(bits[i], out var n) ? n : 0;
+        }
+        for (int i = 0; i < 3; i++)
+        {
+            int x = Part(a, i), y = Part(b, i);
+            if (x != y) return x.CompareTo(y);
+        }
+        return 0;
+    }
+
+    /// Fetches GitHub /releases/latest only (formal published releases; drafts/prereleases excluded).
+    public static async Task<CheckResult> FetchLatestAsync()
+    {
+        var api = GoldConstants.ReleasesApi;
+        if (api.IndexOf("api.github.com", StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            var uri = new Uri(GoldConstants.GithubUrl);
+            api = "https://api.github.com/repos" + uri.AbsolutePath.TrimEnd('/') + "/releases/latest";
+        }
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, api);
+            req.Headers.TryAddWithoutValidation("User-Agent", "GoldTicker");
+            req.Headers.TryAddWithoutValidation("Accept", "application/vnd.github+json");
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(12));
+            using var resp = await SharedHttp.Client.SendAsync(req, cts.Token).ConfigureAwait(false);
+            if ((int)resp.StatusCode == 404)
+                return new CheckResult { Kind = CheckKind.NoPublishedRelease };
+            if (!resp.IsSuccessStatusCode)
+                return new CheckResult { Kind = CheckKind.NetworkError };
+
+            var text = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var root = (IDictionary<string, object>)MiniJson.Parse(text);
+            if (root == null) return new CheckResult { Kind = CheckKind.NetworkError };
+
+            bool draft = root.TryGetValue("draft", out var dObj) && dObj is bool db && db;
+            bool pre = root.TryGetValue("prerelease", out var pObj) && pObj is bool pb && pb;
+            if (draft || pre) return new CheckResult { Kind = CheckKind.NoPublishedRelease };
+
+            var tag = Convert.ToString(root.TryGetValue("tag_name", out var t) ? t : "", CultureInfo.InvariantCulture) ?? "";
+            string url = "", name = "";
+            var hint = (GoldConstants.WinAssetHint ?? "GoldTicker.exe").ToLowerInvariant();
+            if (root.TryGetValue("assets", out var assetsObj) && assetsObj is IEnumerable assetsEnum)
+            {
+                foreach (var item in assetsEnum)
+                {
+                    if (!(item is IDictionary<string, object> a)) continue;
+                    var n = Convert.ToString(a.TryGetValue("name", out var nn) ? nn : "", CultureInfo.InvariantCulture) ?? "";
+                    var u = Convert.ToString(a.TryGetValue("browser_download_url", out var uu) ? uu : "", CultureInfo.InvariantCulture) ?? "";
+                    if (n.Length == 0 || u.Length == 0) continue;
+                    var nl = n.ToLowerInvariant();
+                    if (nl.Contains(hint) || nl.EndsWith(".exe", StringComparison.Ordinal))
+                    {
+                        url = u; name = n;
+                        if (nl.Contains(hint)) break;
+                    }
+                }
+            }
+            return new CheckResult
+            {
+                Kind = CheckKind.Ok,
+                Release = new ReleaseInfo { Tag = tag, DownloadUrl = url, AssetName = name },
+            };
+        }
+        catch
+        {
+            return new CheckResult { Kind = CheckKind.NetworkError };
+        }
+    }
+
+    public static async Task DownloadToFileAsync(string url, string path)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("User-Agent", "GoldTicker");
+        using var resp = await SharedHttp.Client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        using var src = await resp.Content.ReadAsStreamAsync().ConfigureAwait(false);
+        using var dst = File.Create(path);
+        await src.CopyToAsync(dst).ConfigureAwait(false);
+    }
+
+    /// Write a bat that waits for this PID to exit, replaces the exe, relaunches.
+    public static string WriteApplyScript(string newExe, string targetExe, int pid)
+    {
+        var bat = Path.Combine(Path.GetTempPath(), "goldticker-apply-update.bat");
+        var body =
+            "@echo off\r\n" +
+            "setlocal\r\n" +
+            ":wait\r\n" +
+            "tasklist /FI \"PID eq " + pid + "\" | find \"" + pid + "\" >nul\r\n" +
+            "if not errorlevel 1 (\r\n" +
+            "  timeout /t 1 /nobreak >nul\r\n" +
+            "  goto wait\r\n" +
+            ")\r\n" +
+            "copy /y \"" + newExe + "\" \"" + targetExe + "\" >nul\r\n" +
+            "start \"\" \"" + targetExe + "\"\r\n" +
+            "del \"" + newExe + "\" >nul 2>&1\r\n" +
+            "del \"%~f0\" >nul 2>&1\r\n";
+        File.WriteAllText(bat, body, new UTF8Encoding(false));
+        return bat;
+    }
+}
+
+internal static class SharedHttp
+{
+    internal static readonly HttpClient Client;
+
+    static SharedHttp()
+    {
+        ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        Client = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
     }
 }

@@ -31,15 +31,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install -r requirements.txt 'pyinstaller>=6.11,<7'
       - run: python tools/build.py
+      - run: lipo -info dist/macos/GoldTicker.app/Contents/MacOS/GoldTicker
       - run: dist/macos/GoldTicker.app/Contents/MacOS/GoldTicker --smoke-test
       - uses: actions/upload-artifact@v4
         with:
           name: macos-universal2
           path: |
-            dist/**/*.dmg
-            dist/**/*.sha256
+            dist/macos/GoldTicker-macOS-Universal2.dmg
+            dist/macos/GoldTicker-macOS-Universal2.dmg.sha256
   build-windows:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     needs: test

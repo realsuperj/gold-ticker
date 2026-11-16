@@ -65,31 +65,23 @@ Visit the [Releases](https://github.com/realsuperj/gold-ticker/releases) page to
 - **macOS**: Download `GoldTicker-macOS-Universal2.dmg` (Intel / Apple Silicon), double click and drag to `Applications`.
 - **Windows**: Download standalone `GoldTicker.exe` (or `GoldTicker-Windows-x64.zip`), double click to run directly without dependencies.
 
-### Method 2: Run from Source
+### Method 2: Build from Source
 
-Both platforms start with `python goldticker.py`; absolute paths work from any directory.
-
-Local builds and CI both run `python tools/build.py` using `GoldTicker.spec` (`target_arch=universal2`), producing `GoldTicker-macOS-Universal2.dmg`. `python goldticker.py --smoke-test` runs an offline native UI smoke check with temporary configuration.
+Business rules, bank spreads, endpoints, and bilingual strings are maintained in a single source of truth (`shared/spec.json`), embedded at compile time into **`< 1 MB` zero-dependency native binaries** on both platforms:
+- **macOS**: `mac-native/GoldTicker.swift` (native Swift + AppKit, `arm64 + x86_64` Universal2), built via `python3 tools/build.py` into `GoldTicker-macOS-Universal2.dmg`.
+- **Windows**: `windows-wpf/` (native `.NET Framework 4.8 + WPF`), built via `.\tools\build_windows_wpf.ps1` into standalone `GoldTicker.exe`.
 
 #### macOS Local Install & Launch
 ```bash
-# 1. Install dependencies (Python 3.9+)
-pip install -r requirements.txt
-pip install "pyinstaller>=6.11,<7"
-
-# 2. Install as native macOS App
+# Build native Universal2 app and install
 ./install.sh                # Install to ~/Applications/GoldTicker.app
 ./install.sh --autostart    # Also register launch daemon for login autostart
 ```
 
-#### Windows Local Launch
+#### Windows Local Build & Launch
 ```powershell
-# 1. Install dependencies
-pip install -r requirements.txt
-pip install "pyinstaller>=6.11,<7"
-
-# 2. Start Windows presentation layer
-python goldticker.py
+.\tools\build_windows_wpf.ps1
+.\dist\windows\GoldTicker.exe
 ```
 
 ---
