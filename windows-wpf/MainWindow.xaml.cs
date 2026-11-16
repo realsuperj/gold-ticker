@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,6 +12,8 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using GoldTicker.Wpf.Core;
+using IoFile = System.IO.File;
+using IoPath = System.IO.Path;
 
 namespace GoldTicker.Wpf;
 
@@ -648,7 +649,7 @@ public partial class MainWindow : Window
 
             var downloading = new InfoWindow(Txt("updating"), Txt("checkingUpdateHint"), Txt("ok")) { Owner = this };
             downloading.Show();
-            var tmp = Path.Combine(Path.GetTempPath(), "GoldTicker-update.exe");
+            var tmp = IoPath.Combine(IoPath.GetTempPath(), "GoldTicker-update.exe");
             try
             {
                 await UpdateChecker.DownloadToFileAsync(rel.DownloadUrl, tmp).ConfigureAwait(true);
@@ -662,7 +663,7 @@ public partial class MainWindow : Window
             downloading.Close();
 
             var target = Process.GetCurrentProcess().MainModule?.FileName;
-            if (string.IsNullOrEmpty(target) || !File.Exists(target))
+            if (string.IsNullOrEmpty(target) || !IoFile.Exists(target))
             {
                 MessageBox.Show(Txt("updateFailed").Replace("{error}", "cannot locate running exe"), Txt("checkUpdate"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;

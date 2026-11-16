@@ -90,7 +90,10 @@ class TestCoreConfig(unittest.TestCase):
     def test_opacity_and_width_clamping(self):
         self.assertEqual(sanitize_config({"opacity": 0.1})["opacity"], 0.60)
         self.assertEqual(sanitize_config({"opacity": 1.5})["opacity"], 1.0)
-        self.assertEqual(sanitize_config({"width": 210})["width"], 216)
+        # Nearest legal width depends on platform (macWidths vs winWidths).
+        from core.config import VALID_WIDTHS
+        expected = min(VALID_WIDTHS, key=lambda w: abs(w - 210))
+        self.assertEqual(sanitize_config({"width": 210})["width"], expected)
 
     def test_load_save_roundtrip(self):
         initial = load_config(self.config_path)
