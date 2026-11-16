@@ -9,7 +9,6 @@ using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Web.Script.Serialization;
 
 namespace GoldTicker.Wpf.Core;
 
@@ -214,8 +213,7 @@ public static class GoldStorage
         try
         {
             var raw = File.ReadAllText(path, Encoding.UTF8);
-            var js = new JavaScriptSerializer { MaxJsonLength = 16 * 1024 * 1024 };
-            var dict = js.DeserializeObject(raw) as IDictionary<string, object>;
+            var dict = MiniJson.Parse(raw) as IDictionary<string, object>;
             return SanitizeConfig(dict);
         }
         catch
@@ -448,8 +446,7 @@ public static class GoldStorage
         try
         {
             var raw = File.ReadAllText(path, Encoding.UTF8);
-            var js = new JavaScriptSerializer { MaxJsonLength = 32 * 1024 * 1024 };
-            var root = js.DeserializeObject(raw);
+            var root = MiniJson.Parse(raw);
             IEnumerable rawPoints = null;
             if (root is IDictionary<string, object> dict)
             {
@@ -890,5 +887,126 @@ public sealed class PricingEngine
     private void RecordSuccess(string id)
     {
         lock (_sync) _failures.Remove(id);
+    }
+}
+
+internal static class MiniJson
+{
+    public static object Parse(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        int idx = 0;
+        return ReadValue(json, ref idx);
+    }
+
+    private static void SkipWs(string s, ref int i)
+    {
+        while (i < s.Length && char.IsWhiteSpace(s[i])) i++;
+    }
+
+    private static object ReadValue(string s, ref int i)
+    {
+        SkipWs(s, ref i);
+        if (i >= s.Length) return null;
+        char c = s[i];
+        if (c == '{') return ReadObject(s, ref i);
+        if (c == '[') return ReadArray(s, ref i);
+        if (c == '"') return ReadString(s, ref i);
+        if (c == 't' || c == 'f') return ReadBool(s, ref i);
+        if (c == 'n') { i += 4; return null; }
+        return ReadNumber(s, ref i);
+    }
+
+    private static Dictionary<string, object> ReadObject(string s, ref int i)
+    {
+        var map = new Dictionary<string, object>();
+        i++; // '{'
+        SkipWs(s, ref i);
+        if (i < s.Length && s[i] == '}') { i++; return map; }
+        while (i < s.Length)
+        {
+            SkipWs(s, ref i);
+            if (i < s.Length && s[i] == '}') { i++; break; }
+            var key = ReadString(s, ref i);
+            SkipWs(s, ref i);
+            if (i < s.Length && s[i] == ':') i++;
+            var val = ReadValue(s, ref i);
+            map[key] = val;
+            SkipWs(s, ref i);
+            if (i < s.Length && s[i] == ',') { i++; continue; }
+            if (i < s.Length && s[i] == '}') { i++; break; }
+            break;
+        }
+        return map;
+    }
+
+    private static List<object> ReadArray(string s, ref int i)
+    {
+        var list = new List<object>();
+        i++; // '['
+        SkipWs(s, ref i);
+        if (i < s.Length && s[i] == ']') { i++; return list; }
+        while (i < s.Length)
+        {
+            SkipWs(s, ref i);
+            if (i < s.Length && s[i] == ']') { i++; break; }
+            list.Add(ReadValue(s, ref i));
+            SkipWs(s, ref i);
+            if (i < s.Length && s[i] == ',') { i++; continue; }
+            if (i < s.Length && s[i] == ']') { i++; break; }
+            break;
+        }
+        return list;
+    }
+
+    private static string ReadString(string s, ref int i)
+    {
+        if (s[i] == '"') i++;
+        var sb = new StringBuilder();
+        while (i < s.Length)
+        {
+            char c = s[i++];
+            if (c == '"') break;
+            if (c == '\\' && i < s.Length)
+            {
+                char esc = s[i++];
+                switch (esc)
+                {
+                    case '"': sb.Append('"'); break;
+                    case '\\': sb.Append('\\'); break;
+                    case '/': sb.Append('/'); break;
+                    case 'b': sb.Append('\b'); break;
+                    case 'f': sb.Append('\f'); break;
+                    case 'n': sb.Append('\n'); break;
+                    case 'r': sb.Append('\r'); break;
+                    case 't': sb.Append('\t'); break;
+                    case 'u':
+                        if (i + 4 <= s.Length && int.TryParse(s.Substring(i, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var hex))
+                        {
+                            sb.Append((char)hex);
+                            i += 4;
+                        }
+                        break;
+                    default: sb.Append(esc); break;
+                }
+            }
+            else sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
+    private static bool ReadBool(string s, ref int i)
+    {
+        if (s.Substring(i).StartsWith("true", StringComparison.Ordinal)) { i += 4; return true; }
+        i += 5;
+        return false;
+    }
+
+    private static double ReadNumber(string s, ref int i)
+    {
+        int start = i;
+        while (i < s.Length && "0123456789+-.eE".IndexOf(s[i]) >= 0) i++;
+        double.TryParse(s.Substring(start, i - start), NumberStyles.Any, CultureInfo.InvariantCulture, out var d);
+        return d;
     }
 }
