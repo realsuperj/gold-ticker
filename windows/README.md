@@ -1,10 +1,14 @@
-# GoldTicker Windows
+# GoldTicker Windows（原生单文件版）
 
-## 正式观感：WinUI 包（不是 Tk）
+基于系统内置 **`.NET Framework 4.8 + WPF`** 原生构建，编译产物仅**单个 `GoldTicker.exe`**（不到 1 MB），零伴随 `.dll` / `.json` 文件，下载后直接双击即可运行。
 
-解压 **`GoldTicker-WinUI-Windows-x64.zip`**，运行同目录 `GoldTicker.exe`（旁路 `GoldTicker.Core.exe` 走 Python core IPC）。  
-无任务栏宽条行情。详见 [`../winui/README.md`](../winui/README.md)。
+- **视觉与交互**：与 macOS 版对齐的圆角深色卡片、高分屏矢量抗锯齿排版、渐变填充当日分时折线图、深色圆角右键菜单；不展示任务栏宽条行情。
+- **配置与缓存**：自动隐藏存储于 `%APPDATA%\GoldTicker\config.json` 与 `intraday-YYYY-MM-DD.json`（与 Python `core/` 格式完全兼容）。
 
-## 旧 Tk 壳
+## 本地构建（Windows）
 
-仅兼容/回退，**不要当当前交付物**。源码临时：`$env:GOLD_TICKER_UI='tk'; python goldticker.py`。
+```powershell
+.\tools\build_windows_wpf.ps1
+```
+
+产物输出至 `dist\windows\GoldTicker.exe`。

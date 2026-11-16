@@ -1,19 +1,16 @@
-name: WinUI Package
+name: Windows Single EXE Build
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'winui/**'
-      - 'core/**'
-      - 'core_worker.py'
-      - 'GoldTicker.Core.spec'
-      - 'tools/package_winui.ps1'
+      - 'windows-wpf/**'
+      - 'tools/build_windows_wpf.ps1'
       - '.github/workflows/winui-package.yml'
 permissions:
   contents: write
 concurrency:
-  group: winui-package-${{ github.ref }}
+  group: win-single-exe-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   package:
@@ -23,63 +20,42 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - uses: actions/setup-dotnet@v4
-        with:
-          # Pin 8.x — runners may also have SDK 10, which breaks WindowsAppSDK PriGen tasks.
-          dotnet-version: '8.0.404'
-      - name: Use .NET 8 SDK
+      - run: python -m pip install Pillow
+      - name: Build standalone GoldTicker.exe
         shell: pwsh
         run: |
-          dotnet --list-sdks
-          dotnet --version
-          # Prefer the 8.x SDK even if a newer one is installed.
-          New-Item -ItemType Directory -Force -Path winui\GoldTicker.WinUI | Out-Null
-
-      - name: Package WinUI + Core
-        id: package
-        shell: pwsh
-        run: |
-          # Avoid piping so $ErrorActionPreference / throw keep a real exit code.
-          .\tools\package_winui.ps1 *> package-winui.log
+          .\tools\build_windows_wpf.ps1 *> build-windows-wpf.log
           if (-not $?) {
-            Get-Content package-winui.log -Tail 120
+            Get-Content build-windows-wpf.log -Tail 120
             exit 1
           }
-          Get-Content package-winui.log -Tail 40
-
-      - name: Upload package log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: winui-package-log
-          path: package-winui.log
-          if-no-files-found: ignore
+          Get-Content build-windows-wpf.log -Tail 50
       - uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
-          name: windows-winui-x64
+          name: windows-single-exe
           path: |
-            dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip
-            dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip.sha256
-      # Drop branch: zip on success, log on failure (fetchable over git SSH)
+            dist/windows/GoldTicker.exe
+            dist/windows/GoldTicker.exe.sha256
+            dist/windows/GoldTicker-Windows-x64.zip
+            build-windows-wpf.log
+          if-no-files-found: ignore
       - name: Publish drop branch
         if: always()
         shell: bash
         run: |
           set -euxo pipefail
           DROP_DIR=$(mktemp -d)
-          mkdir -p "$DROP_DIR"
-          if [ -f dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip ]; then
-            cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip "$DROP_DIR/"
-            cp dist/windows-winui/GoldTicker-WinUI-Windows-x64.zip.sha256 "$DROP_DIR/" || true
+          if [ -f dist/windows/GoldTicker.exe ]; then
+            cp dist/windows/GoldTicker.exe "$DROP_DIR/"
+            cp dist/windows/GoldTicker.exe.sha256 "$DROP_DIR/" || true
+            cp dist/windows/GoldTicker-Windows-x64.zip "$DROP_DIR/" || true
           fi
-          if [ -f package-winui.log ]; then cp package-winui.log "$DROP_DIR/"; fi
-          ls -la "$DROP_DIR"
-          test -n "$(ls -A "$DROP_DIR")"
+          if [ -f build-windows-wpf.log ]; then cp build-windows-wpf.log "$DROP_DIR/"; fi
           cd "$DROP_DIR"
           git init
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "winui package drop"
+          git commit -m "windows single exe drop"
           git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/winui-drop"

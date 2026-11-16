@@ -19,6 +19,8 @@ ENV/
 
 # PyInstaller intermediate files
 *.manifest
+!windows-wpf/app.manifest
+!winui/GoldTicker.WinUI/app.manifest
 build/win-pyinstaller/
 build/pyinstaller/
 build/GoldTicker.spec

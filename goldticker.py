@@ -10,7 +10,7 @@ def main():
     if sys.platform == "darwin":
         from mac.main import main as run
     elif sys.platform == "win32":
-        from windows.bootstrap import main as run
+        from windows.main import main as run
     else:
         raise SystemExit("GoldTicker supports macOS and Windows.")
     run()
