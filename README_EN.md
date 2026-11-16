@@ -10,6 +10,7 @@
   <a href="README.md">简体中文</a> | <b>English</b>
 </p>
 
+[![version](https://img.shields.io/badge/version-1.2.0-brightgreen)](https://github.com/realsuperj/gold-ticker/releases/tag/v1.2.0)
 [![CI/CD Release](https://github.com/realsuperj/gold-ticker/actions/workflows/release.yml/badge.svg)](https://github.com/realsuperj/gold-ticker/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](https://github.com/realsuperj/gold-ticker/releases)
