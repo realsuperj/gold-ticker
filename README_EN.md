@@ -68,7 +68,7 @@ Visit the [Releases](https://github.com/realsuperj/gold-ticker/releases) page to
 ### Method 2: Build from Source
 
 Business rules, bank spreads, endpoints, and bilingual strings are maintained in a single source of truth (`shared/spec.json`), embedded at compile time into **`< 1 MB` zero-dependency native binaries** on both platforms:
-- **macOS**: `mac-native/GoldTicker.swift` (native Swift + AppKit, `arm64 + x86_64` Universal2), built via `python3 tools/build.py` into `GoldTicker-macOS-Universal2.dmg`.
+- **macOS**: `mac-native/GoldTicker.m` (native Objective-C + AppKit, `arm64 + x86_64` Universal2), built via `python3 tools/build.py` into `GoldTicker-macOS-Universal2.dmg`.
 - **Windows**: `windows-wpf/` (native `.NET Framework 4.8 + WPF`), built via `.\tools\build_windows_wpf.ps1` into standalone `GoldTicker.exe`.
 
 #### macOS Local Install & Launch
@@ -102,6 +102,7 @@ Right-click on the desktop floating card, or click the menu bar / system tray ic
 | **Refresh Interval** | 10s / 15s / 30s / 60s / 300s | Flexible polling frequency options |
 | **Customization** | Width (180~280pt) / Opacity (60%~100%) | Multi-tier visual dimensions |
 | **Maintenance** | Open Config Dir / Reset Position / Reload | Quick access to configuration file and window repositioning |
+| **Updates** | Check for Updates | Check for and install a newer version |
 
 ---
 

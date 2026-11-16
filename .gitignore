@@ -22,14 +22,11 @@ env/
 venv/
 ENV/
 
-# PyInstaller intermediate files
+# Packaging intermediate files
 *.manifest
 !windows-wpf/app.manifest
-!winui/GoldTicker.WinUI/app.manifest
 build/win-pyinstaller/
 build/pyinstaller/
-build/GoldTicker.spec
-!build_windows.spec
 
 # macOS system files
 .DS_Store

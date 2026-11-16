@@ -1,4 +1,4 @@
-// GoldTicker — native AppKit, single-file Objective-C (ARC). Port of GoldTicker.swift.
+// GoldTicker — native AppKit, single-file Objective-C (ARC).
 // Build: clang -fobjc-arc -Os -mmacosx-version-min=12.0 -arch arm64 -arch x86_64 -framework AppKit -framework Foundation -o GoldTicker GoldTicker.m
 #import <AppKit/AppKit.h>
 

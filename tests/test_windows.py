@@ -167,13 +167,14 @@ class TestPurityAndVersionMetadata(unittest.TestCase):
         self.assertNotIn("点)", content)
 
     def test_version_metadata(self):
-        """AC-5: 验证 version.txt PE 资源元数据包含版权与 studio 声明。"""
-        version_txt = REPO_ROOT / "windows" / "version.txt"
-        self.assertTrue(version_txt.is_file())
-        text = version_txt.read_text(encoding="utf-8")
-        self.assertIn("realsuperj", text)
-        self.assertIn("GoldTicker", text)
-        self.assertIn("Copyright © 2026 realsuperj. MIT License.", text)
+        """AC-5: 验证 WPF 工程与 shared spec 版本/版权元数据。"""
+        from core.product import COPYRIGHT, PRODUCT_NAME, VERSION
+
+        csproj = (REPO_ROOT / "windows-wpf" / "GoldTicker.Wpf.csproj").read_text(encoding="utf-8")
+        self.assertIn(f"<Version>{VERSION}</Version>", csproj)
+        self.assertIn(PRODUCT_NAME, csproj)
+        self.assertIn(COPYRIGHT, csproj)
+        self.assertIn("realsuperj", COPYRIGHT)
 
 
 if __name__ == "__main__":

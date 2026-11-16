@@ -68,7 +68,7 @@ GoldTicker 严格保障金融数据的透明度与准确性，当前收录的 5 
 ### 方式二：源码运行与本地构建
 
 跨端业务规则、标的估算点差与多语言字典统一维护于唯一真源 `shared/spec.json`，两端发布包均为 **`< 1 MB` 零依赖原生可执行产物**：
-- **macOS**：`mac-native/GoldTicker.swift`（原生 Swift + AppKit，`arm64 + x86_64` Universal2），运行 `python3 tools/build.py` 产出 `GoldTicker-macOS-Universal2.dmg`。
+- **macOS**：`mac-native/GoldTicker.m`（原生 Objective-C + AppKit，`arm64 + x86_64` Universal2），运行 `python3 tools/build.py` 产出 `GoldTicker-macOS-Universal2.dmg`。
 - **Windows**：`windows-wpf/`（原生 `.NET Framework 4.8 + WPF`），运行 `.\tools\build_windows_wpf.ps1` 产出单文件 `GoldTicker.exe`。
 
 #### macOS 本地安装与启动
@@ -103,6 +103,7 @@ GoldTicker 严格保障金融数据的透明度与准确性，当前收录的 5 
 | **刷⁠新⁠频⁠率** | 10秒 / 15秒 / 30秒 / 60秒 / 300秒 | 灵活调节数据更新频率 |
 | **卡⁠片⁠定⁠制** | 宽度 (180~280pt) / 透明度 (60%~100%) | 界面自适应多档排版调节 |
 | **数⁠据⁠管⁠理** | 打开配置目录 / 重置位置 / 重新加载 | 一键定位配置文件，重置窗口至屏幕右上角 |
+| **更⁠新** | 检查更新 | 检查并安装新版本 |
 
 ---
 
