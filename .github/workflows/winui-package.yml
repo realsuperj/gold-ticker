@@ -8,7 +8,7 @@ on:
       - 'tools/build_windows_wpf.ps1'
       - '.github/workflows/winui-package.yml'
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: win-single-exe-${{ github.ref }}
   cancel-in-progress: true
@@ -40,22 +40,3 @@ jobs:
             dist/windows/GoldTicker-Windows-x64.zip
             build-windows-wpf.log
           if-no-files-found: ignore
-      - name: Publish drop branch
-        if: always()
-        shell: bash
-        run: |
-          set -euxo pipefail
-          DROP_DIR=$(mktemp -d)
-          if [ -f dist/windows/GoldTicker.exe ]; then
-            cp dist/windows/GoldTicker.exe "$DROP_DIR/"
-            cp dist/windows/GoldTicker.exe.sha256 "$DROP_DIR/" || true
-            cp dist/windows/GoldTicker-Windows-x64.zip "$DROP_DIR/" || true
-          fi
-          if [ -f build-windows-wpf.log ]; then cp build-windows-wpf.log "$DROP_DIR/"; fi
-          cd "$DROP_DIR"
-          git init
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "windows single exe drop"
-          git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/winui-drop"
