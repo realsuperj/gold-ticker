@@ -25,15 +25,16 @@
 
 <p align="center">
   支持 <b>上海黄金交易所 Au99.99</b>、<b>国际现货金 (XAU/USD)</b> 以及以 <b>浙商银行积存金</b>（及工行、建行）为代表的主流银行积存金实时行情。<br/>
-  macOS：原生毛玻璃桌面卡片 + 菜单栏；Windows：原生 WPF 桌面悬浮卡片（不占用任务栏、无宽条行情）。
+  macOS：原生毛玻璃桌面卡片 + 菜单栏；Windows：原生 WPF 桌面悬浮卡片（无任务栏显示）。
 </p>
 
 <p align="center">
-  <img src="docs/preview-zs.png" width="320" alt="浙商银行积存金实时卡片 (macOS)" />
-  <img src="docs/preview-win-zs.png" width="320" alt="浙商银行积存金实时卡片 (Windows)" />
+  <img src="docs/preview-macos-cn.png" width="420" alt="macOS：桌面卡片 + 菜单栏行情" /><br/>
+  <sub>macOS · AppKit：桌面毛玻璃卡片 + 顶部菜单栏行情</sub>
 </p>
 <p align="center">
-  <sub>左：macOS · 右：Windows（WPF）。浙商积存金实盘样式示意。</sub>
+  <img src="docs/preview-win-zs.png" width="520" alt="Windows：WPF 桌面悬浮卡片" /><br/>
+  <sub>Windows · WPF：桌面悬浮卡片（无任务栏显示）</sub>
 </p>
 
 </div>
@@ -43,7 +44,7 @@
 ## 核心特点
 
 - 🌟 **全口径黄金行情**：聚合上海黄金交易所 Au99.99 权威基准、国际现货金（XAU/USD 原汁原味美元报价与元/克无缝对照），并支持以浙商银行为代表的商业银行积存金多源实时追踪；
-- 🪟 **极简原生质感**：macOS 为 AppKit 毛玻璃悬浮卡片与菜单栏常驻；Windows 为 .NET Framework 4.8 + WPF 桌面悬浮卡片，不展示任务栏宽条行情，安静不抢焦点；
+- 🪟 **极简原生质感**：macOS 为 AppKit 毛玻璃悬浮卡片与菜单栏常驻；Windows 为 .NET Framework 4.8 + WPF 桌面悬浮卡片（无任务栏显示），安静不抢焦点；
 - 📈 **动态分时走势**：内置平滑分时折线与昨收基准参考线；支持一键开启/折叠走势图，卡片高度自适应；
 - 🔄 **入口与控制**：两端均可右键卡片打开完整菜单；macOS 另支持桌面卡片与菜单栏图标双入口（可隐藏其一）；
 - 🎨 **习惯跟着人走**：国内习惯（红涨绿跌）与国际习惯（绿涨红跌）一键全局切换，不随标的跳变；

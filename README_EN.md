@@ -25,15 +25,16 @@
 
 <p align="center">
   Supporting <b>Shanghai Gold Exchange Au99.99</b>, <b>Spot Gold (XAU/USD)</b>, and major Chinese commercial bank accumulation gold (<b>CZBank</b>, ICBC, CCB).<br/>
-  macOS: native frosted desktop card + menu bar. Windows: native WPF floating desktop card (no taskbar ticker strip).
+  macOS: native frosted desktop card + menu bar. Windows: native WPF floating desktop card (no taskbar / tray ticker).
 </p>
 
 <p align="center">
-  <img src="docs/preview-zs-en.png" width="320" alt="CZBank Gold live card (macOS)" />
-  <img src="docs/preview-win-zs-en.png" width="320" alt="CZBank Gold live card (Windows)" />
+  <img src="docs/preview-mac-desktop-zs-en.png" width="420" alt="macOS: desktop card + menu bar ticker" /><br/>
+  <sub>macOS · AppKit: frosted desktop card + menu bar ticker</sub>
 </p>
 <p align="center">
-  <sub>Left: macOS · Right: Windows (WPF). CZBank gold card visuals.</sub>
+  <img src="docs/preview-win-zs-en.png" width="520" alt="Windows: WPF floating desktop card" /><br/>
+  <sub>Windows · WPF: floating desktop card (no taskbar display)</sub>
 </p>
 
 </div>
@@ -43,7 +44,7 @@
 ## Key Features
 
 - 🌟 **Comprehensive Quotes**: Aggregates Shanghai Gold Exchange Au99.99, international spot gold (XAU/USD native USD quote), and commercial bank accumulation gold in real time.
-- 🪟 **Minimalist Native UI**: macOS uses AppKit frosted glass card + menu bar item; Windows uses .NET Framework 4.8 + WPF floating desktop card — no wide taskbar ticker, stays out of the way.
+- 🪟 **Minimalist Native UI**: macOS uses AppKit frosted glass card + menu bar item; Windows uses .NET Framework 4.8 + WPF floating desktop card (no taskbar display), stays out of the way.
 - 📈 **Dynamic Intraday Chart**: Smooth curve with previous-close baseline; collapsible chart with adaptive card height.
 - 🔄 **Entry & Controls**: Right-click the card for the full menu on both platforms; macOS also supports desktop card + menu bar dual entry (hide either side independently).
 - 🎨 **User-Centric Colors**: Red-up/green-down (CN) or green-up/red-down (intl), applied globally across symbols.
